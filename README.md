@@ -1,24 +1,19 @@
-# kma-pipeline
+# kmapipeline2
 
-A (somewhat) easy to use microbial pipeline
+This is an automated pipeline that takes a list of paths with microbial isolates (PE).
 
-For now it only supports paired end reads.
+Quality control is followed by species detection, assembly and finally comparisons between groups of isolates: Core genome analysis etc.
 
-It uses trim galore and unicycler to assemble bacterial genomes.
-
-These genomes are indexed in a database.
-
-The database then interfaces with nullarbor in order to compare the assemblies of different microbial isolates.
+A simple database is maintained with relevant metadata for the isolates. This database can interface with nullarbor, tormes, bifrost etc. 
 
 ## Functionality
 This microbial genome pipeline executes a number of tasks on each set of reads.
 
 For each set of reads:
- - (QC reads) (FastQC)
- - trim reads (trim galore)
- - species identification on reads (Kraken2)
+ - QC and trimming reads (trim galore)
+ - species identification on reads and assemblies (Kraken2)
  - _de novo_ genome assembly (unicycler)
- - (species identification on assembly) (Kraken2
+ - (species identification on assembly) 
  
 For each group of isolates:
  - ([Nullarbor](https://github.com/tseemann/nullarbor)) report
