@@ -1,3 +1,4 @@
 output/
 reads_paths.tab
 .gwf/
+__pycache__/
