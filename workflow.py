@@ -157,16 +157,16 @@ for prefix, path in reads_paths_parsed.items():
             
                 cat_log="output/isolates/{full_name}/cat_reads/cat.log"
 
-                echo "" > $cat_log
                 
-                echo -e "forward: {\n} {nl.join(reads_forward_full)}" >> $cat_log
+                
+                echo -e "forward:{nl}{nl.join(reads_forward_full)}" > $cat_log
                 cat {' '.join(reads_forward_full)} > output/isolates/{full_name}/cat_reads/PE_R1.fastq.gz
 
-                echo -e "reverse: {nl+nl} {nl.join(reads_reverse_full)}" >> $cat_log
+                echo -e "{nl}reverse:{nl}{nl.join(reads_reverse_full)}" >> $cat_log
                 cat {' '.join(reads_reverse_full)} > output/isolates/{full_name}/cat_reads/PE_R2.fastq.gz
 
 
-                echo "{nl}Completed $(date)" >> $cat_log
+                echo "{nl}{nl}Completed $(date)" >> $cat_log
 
 
                 """
@@ -227,8 +227,7 @@ for prefix, path in reads_paths_parsed.items():
 
                 """
             
-
-        break
+        #break
 
 
 
