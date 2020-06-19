@@ -150,6 +150,7 @@ for prefix, path in reads_paths_parsed.items():
                        f"output/isolates/{full_name}/cat_reads/PE_R2.fastq.gz"],
             cores = 8,
             memory = '1gb',
+            walltime = '01:00:00',
             account = 'clinicalmicrobio') << f"""
                 mkdir -p output/isolates/{full_name}/cat_reads/
 
@@ -179,6 +180,7 @@ for prefix, path in reads_paths_parsed.items():
                       f"output/isolates/{full_name}/cat_reads/PE_R2_trimmed.fq.gz"],
             cores = 1,
             memory = '1gb',
+            walltime = '04:00:00',
             account = 'clinicalmicrobio') << f"""
 
                 trim_galore --paired --gzip -o output/isolates/{full_name}/trim_reads/ output/isolates/{full_name}/cat_reads/PE_R1.fastq.gz output/isolates/{full_name}/cat_reads/PE_R2.fastq.gz  
@@ -189,7 +191,21 @@ for prefix, path in reads_paths_parsed.items():
                 """
 
 
+        kraken_reads_top_command = """awk -F '\\t' '$4 ~ "(^S$)|(U)" {gsub(/^[ \\t]+/, "", $6); printf("%6.2f%%\\t%s\\n", $1, $6)}'"""
+        gwf.target(sanify('_2_kraken_', full_name),
+            inputs = [f"output/isolates/{full_name}/cat_reads/PE_R1_trimmed.fq.gz",
+                      f"output/isolates/{full_name}/cat_reads/PE_R2_trimmed.fq.gz"],
+            outputs = [f"output/isolates/{full_name}/kraken2/kraken2_reads_report.txt"],
+            cores = 8,
+            memory = '8gb',
+            account = 'clinicalmicrobio') << f"""
 
+                mkdir -p output/isolates/{full_name}/kraken2
+                kraken2 --db /project/ClinicalMicrobio/faststorage/database/minikraken2_v2_8GB_201904_UPDATE --report output/isolates/{full_name}/kraken2/kraken2_reads_report.txt --paired output/isolates/{full_name}/trim_reads/PE_R1_trimmed.fq.gz output/isolates/{full_name}/trim_reads/PE_R2_trimmed.fq.gz > /dev/null
+
+                cat output/isolates/{full_name}/kraken2/kraken2_reads_report.txt | {kraken_reads_top_command} | sort -gr | head -n 10 > kraken2_reads_top.tab
+                
+                """
 
         break
 
