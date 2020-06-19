@@ -27,6 +27,11 @@ Then it generates a pipeline for each sample found among the reads in those path
 
 input_paths_file = 'reads_paths.tab'
 
+nl = '\n'
+std_setup = {'cores': 8,
+             'memory': '1gb', 
+             'account': 'clinicalmicrobio'}
+
 
 reads_paths_parsed = {}
 with open(input_paths_file, 'r') as reads_paths:
@@ -131,13 +136,14 @@ for prefix, path in reads_paths_parsed.items():
         for i, j in zip(reads_forward, reads_reverse):
             print(f"\t{i}\t{j}")
 
-        #print('f', reads_forward)
-        #print('b', reads_reverse)
 
-        #print([path + i for i in reads_forward])
+        print()
 
-        # TODO: ask if this is OK, before creating jobs.
-
+        # The problem is that it asks also when you write gwf status
+        #if not input('Continue? [y]/n ')[0].strip().upper() == 'Y':
+        #    print(' user exited...')
+        #    exit()
+        
         gwf.target(sanify('_0_cat_reads_', full_name),
             inputs = reads_forward_full + reads_reverse_full,
             outputs = [f"output/isolates/{full_name}/cat_reads/PE_R1.fastq.gz",
@@ -166,7 +172,20 @@ for prefix, path in reads_paths_parsed.items():
 
 
 
-        gwf.target()
+        gwf.target(sanify('_1_trim_', full_name),
+            inputs = [f"output/isolates/{full_name}/cat_reads/PE_R1.fastq.gz",
+                      f"output/isolates/{full_name}/cat_reads/PE_R2.fastq.gz"],
+            outputs = [f"output/isolates/{full_name}/cat_reads/PE_R1_trimmed.fq.gz",
+                      f"output/isolates/{full_name}/cat_reads/PE_R2_trimmed.fq.gz"],
+            cores = 1,
+            memory = '1gb',
+            account = 'clinicalmicrobio') << f"""
+
+                trim_galore --paired --gzip -o output/isolates/{full_name}/trim_reads/ output/isolates/{full_name}/cat_reads/PE_R1.fastq.gz output/isolates/{full_name}/cat_reads/PE_R2.fastq.gz  
+
+                # TODO: Find a way to save the fastq results? They should be calculated within trim_galore
+
+                """
 
 
 
