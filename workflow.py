@@ -183,9 +183,11 @@ for prefix, path in reads_paths_parsed.items():
 
                 trim_galore --paired --gzip -o output/isolates/{full_name}/trim_reads/ output/isolates/{full_name}/cat_reads/PE_R1.fastq.gz output/isolates/{full_name}/cat_reads/PE_R2.fastq.gz  
 
+                # TODO: check if trim galore supports multiple cores now? 
                 # TODO: Find a way to save the fastq results? They should be calculated within trim_galore
 
                 """
+
 
 
 
