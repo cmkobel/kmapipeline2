@@ -134,7 +134,7 @@ for prefix, path in reads_paths_parsed.items():
 
 
         for i, j in zip(reads_forward, reads_reverse):
-            print(f"\t{i}\t{j}")
+            print(f"  {i}\t{j}")
 
 
         print()
@@ -159,14 +159,14 @@ for prefix, path in reads_paths_parsed.items():
 
                 echo "" > $cat_log
                 
-                echo -e "forward: {' '.join(reads_forward_full)}" >> $cat_log
+                echo -e "forward: {\n} {nl.join(reads_forward_full)}" >> $cat_log
                 cat {' '.join(reads_forward_full)} > output/isolates/{full_name}/cat_reads/PE_R1.fastq.gz
 
-                echo -e "forward: {' '.join(reads_reverse_full)}" >> $cat_log
+                echo -e "reverse: {nl+nl} {nl.join(reads_reverse_full)}" >> $cat_log
                 cat {' '.join(reads_reverse_full)} > output/isolates/{full_name}/cat_reads/PE_R2.fastq.gz
 
 
-                echo Completed $(date) >> $cat_log
+                echo "{nl}Completed $(date)" >> $cat_log
 
 
                 """
@@ -176,8 +176,8 @@ for prefix, path in reads_paths_parsed.items():
         gwf.target(sanify('_1_trim_', full_name),
             inputs = [f"output/isolates/{full_name}/cat_reads/PE_R1.fastq.gz",
                       f"output/isolates/{full_name}/cat_reads/PE_R2.fastq.gz"],
-            outputs = [f"output/isolates/{full_name}/cat_reads/PE_R1_trimmed.fq.gz",
-                      f"output/isolates/{full_name}/cat_reads/PE_R2_trimmed.fq.gz"],
+            outputs = [f"output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz",
+                      f"output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz"],
             cores = 1,
             memory = '1gb',
             walltime = '04:00:00',
@@ -189,23 +189,44 @@ for prefix, path in reads_paths_parsed.items():
                 # TODO: Find a way to save the fastq results? They should be calculated within trim_galore
 
                 """
+                
 
 
         kraken_reads_top_command = """awk -F '\\t' '$4 ~ "(^S$)|(U)" {gsub(/^[ \\t]+/, "", $6); printf("%6.2f%%\\t%s\\n", $1, $6)}'"""
         gwf.target(sanify('_2_kraken_', full_name),
-            inputs = [f"output/isolates/{full_name}/cat_reads/PE_R1_trimmed.fq.gz",
-                      f"output/isolates/{full_name}/cat_reads/PE_R2_trimmed.fq.gz"],
-            outputs = [f"output/isolates/{full_name}/kraken2/kraken2_reads_report.txt"],
+            inputs = [f"output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz",
+                      f"output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz"],
+            outputs = [f"output/isolates/{full_name}/kraken2/kraken2_reads_report.txt",
+                       f"output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab"],
             cores = 8,
             memory = '8gb',
             account = 'clinicalmicrobio') << f"""
 
                 mkdir -p output/isolates/{full_name}/kraken2
-                kraken2 --db /project/ClinicalMicrobio/faststorage/database/minikraken2_v2_8GB_201904_UPDATE --report output/isolates/{full_name}/kraken2/kraken2_reads_report.txt --paired output/isolates/{full_name}/trim_reads/PE_R1_trimmed.fq.gz output/isolates/{full_name}/trim_reads/PE_R2_trimmed.fq.gz > /dev/null
+                #kraken2 --db /project/ClinicalMicrobio/faststorage/database/minikraken2_v2_8GB_201904_UPDATE --report output/isolates/{full_name}/kraken2/kraken2_reads_report.txt --paired output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz > /dev/null
 
-                cat output/isolates/{full_name}/kraken2/kraken2_reads_report.txt | {kraken_reads_top_command} | sort -gr | head -n 10 > kraken2_reads_top.tab
-                
+                cat output/isolates/{full_name}/kraken2/kraken2_reads_report.txt | {kraken_reads_top_command} | sort -gr | head -n 10 > output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab
+
                 """
+
+
+        gwf.target(sanify('_3_assemble_', full_name),
+            inputs = [f"output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz",
+                      f"output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz"],
+            outputs = [],
+            cores = 8,
+            memory = '16gb',
+            walltime = '2-00:00:00',
+            account = 'clinicalmicrobio') << f"""
+
+                mkdir -p output/isolates/{full_name}/unicycler
+
+                unicycler --min_fasta_length 500 -1 output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz -2 output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz -o output/isolates/{full_name}/unicycler
+                assembly-stats -t isolates/{full_name}/assembly/assembly.fasta > output/isolates/{full_name}/assembly/assembly-stats.tab
+
+
+                """
+            
 
         break
 
