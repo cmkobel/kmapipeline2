@@ -39,7 +39,7 @@ with open(input_paths_file, 'r') as reads_paths:
 
         if line[0] in ['#', '\n']:
             continue # Comments and newlines are OK
-        parse = line.strip().split('\t')
+        parse = line.strip().split('\t') # TODO: only strip newlines. An "empty" tab in the end should not be a parsing error, even though it doesn't make sense to not have a path..
         
         prefix = parse[0]
         method = parse[1] # not implemented yet
