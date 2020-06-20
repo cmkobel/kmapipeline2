@@ -19,8 +19,10 @@ gwf = Workflow(defaults={
 
 This file reads the list of paths defined in the input_paths_file 
 
-Then it generates a pipeline for each sample found among the reads in those paths
+Then it generates a pipeline for each sample found among the reads in those paths.
 
+TODO: Disable generation of pipeline samples where the full report is completed.
+TODO: Also, make the report system.
 
 """
 
@@ -64,8 +66,8 @@ print()
 # We assume that all reads have a constant length suffix
 # We assume that the reads have the lane number followed by the direction (lanes_first)
 
-# By eating the suffixes from the end until there are (number_of_files)/4/2 unique sample names.
-# If this can not be achieved, an error will be thrown.
+# By eating the suffixes from the end until there are (number_of_files)/4/2 unique sample names, we can extract the sample names.
+# A number of small sanity checks are performed underway.
 
 for prefix, path in reads_paths_parsed.items():
     check_set = set() # With this set, I'm checking that each each file in the path is used once only.
@@ -273,7 +275,7 @@ for prefix, path in reads_paths_parsed.items():
 
     # Sanity check on the number of reads available and used.
     if len(check_set) != n:
-        raise Exception(f"(Fatal) The number of reads available ({n}) in the path ({path}) is not equal to the number of reads used ({len(check_set)})")        
+        raise Exception(f"(Fatal) The number of reads available ({n}) in the path ({path}) is not equal to the number of reads used ({len(check_set)}).")        
 
 
 
@@ -282,13 +284,6 @@ for prefix, path in reads_paths_parsed.items():
 
 
 
-
-
-    
-
-
-
-    # Now we will shorten the suffixes until we get n/4/2 unique sample names
 
 
 
