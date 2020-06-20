@@ -1,10 +1,10 @@
 # kmapipeline2
 
-This is an automated pipeline that takes a list of paths with microbial isolates (PE).
+This is an automated pipeline for use for many microbial isolates.
 
 Quality control is followed by species detection, assembly and finally comparisons in groups of isolates: Core genome analysis etc.
 
-A simple database is maintained with relevant metadata for the isolates. This database can interface with nullarbor, tormes, bifrost etc. 
+A simple database is maintained with relevant metadata for the isolates. This database should interface with nullarbor, tormes, bifrost etc. 
 
 ## Functionality
 This microbial genome pipeline executes a number of tasks on each set of reads.
@@ -25,12 +25,17 @@ The development is broken down into the following phases which will be completed
 
 ### Phase 1
  - [x] parse reads
- - [x] merge reads
- - [ ] QC on reads
+ - [x] merge reads 
+ - [x] QC on reads (fastqc)
+ - [x] species detection (kraken2)
+ - [x] assembly (unicycler)
+ - [x] annotation (prokka)
+ - [ ] simple database
  
  
 ### Phase 2
  - [ ] interface with [Nullarbor](https://github.com/tseemann/nullarbor) somehow
+ - [ ] interface with SSI-bifrost
  - [ ] use a shared conda environment
 
 ### Phase 3
