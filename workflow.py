@@ -197,18 +197,18 @@ for prefix, path in reads_paths_parsed.items():
             inputs = [f"output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz",
                       f"output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz"],
             outputs = [f"output/isolates/{full_name}/kraken2/kraken2_reads_report.txt",
-                       f"output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab_again"],
+                       f"output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab"],
             cores = 8,
             memory = '8gb',
             account = 'clinicalmicrobio') << f"""
 
                 mkdir -p output/isolates/{full_name}/kraken2
                 
-                kraken2 --db /project/ClinicalMicrobio/faststorage/database/minikraken2_v2_8GB_201904_UPDATE/ --report output/isolates/{full_name}/kraken2/kraken2_reads_report_old.txt --paired output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz > /dev/null
+                #kraken2 --db /project/ClinicalMicrobio/faststorage/database/minikraken2_v2_8GB_201904_UPDATE/ --report output/isolates/{full_name}/kraken2/kraken2_reads_report_old.txt --paired output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz > /dev/null
                 kraken2 --db /project/ClinicalMicrobio/faststorage/database/minikraken_8GB_20200312/ --report output/isolates/{full_name}/kraken2/kraken2_reads_report.txt --paired output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz > /dev/null
 
+                #cat output/isolates/{full_name}/kraken2/kraken2_reads_report_old.txt | {kraken_reads_top_command} | sort -gr | head -n 10 > output/isolates/{full_name}/kraken2/kraken2_reads_top10_old.tab
                 cat output/isolates/{full_name}/kraken2/kraken2_reads_report.txt | {kraken_reads_top_command} | sort -gr | head -n 10 > output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab
-                cat output/isolates/{full_name}/kraken2/kraken2_reads_report_old.txt | {kraken_reads_top_command} | sort -gr | head -n 10 > output/isolates/{full_name}/kraken2/kraken2_reads_top10_old.tab
 
 
                 """
@@ -225,7 +225,7 @@ for prefix, path in reads_paths_parsed.items():
 
                 mkdir -p output/isolates/{full_name}/unicycler
 
-                unicycler --min_fasta_length 500 -1 output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz -2 output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz -o output/isolates/{full_name}/unicycler
+                #unicycler --min_fasta_length 500 -1 output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz -2 output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz -o output/isolates/{full_name}/unicycler
                 assembly-stats -t isolates/{full_name}/assembly/assembly.fasta > output/isolates/{full_name}/assembly/assembly-stats.tab
 
 
