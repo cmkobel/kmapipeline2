@@ -68,8 +68,8 @@ print()
 
 for prefix, path in reads_paths_parsed.items():
 
-    glob = sorted(glob.glob(f"{path}/*.fastq.gz"))
-    glob_basenames = [os.path.basename(i) for i in glob]
+    glob_ = sorted(glob.glob(f"{path}/*.fastq.gz"))
+    glob_basenames = [os.path.basename(i) for i in glob_]
 
     n = len(glob_basenames)
     print('n', n)
@@ -177,13 +177,15 @@ for prefix, path in reads_paths_parsed.items():
             inputs = [f"output/isolates/{full_name}/cat_reads/PE_R1.fastq.gz",
                       f"output/isolates/{full_name}/cat_reads/PE_R2.fastq.gz"],
             outputs = [f"output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz",
-                      f"output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz"],
-            cores = 1,
-            memory = '1gb',
+                      f"output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz",
+                      f"output/isolates/{full_name}/trim_reads/PE_R1_val_1_fastqc.zip",
+                      f"output/isolates/{full_name}/trim_reads/PE_R2_val_2_fastqc.zip"],
+            cores = 4,
+            memory = '4gb',
             walltime = '04:00:00',
             account = 'clinicalmicrobio') << f"""
 
-                trim_galore --paired --gzip -o output/isolates/{full_name}/trim_reads/ output/isolates/{full_name}/cat_reads/PE_R1.fastq.gz output/isolates/{full_name}/cat_reads/PE_R2.fastq.gz  
+                trim_galore --paired --cores 4 --gzip --fastqc -o output/isolates/{full_name}/trim_reads/ output/isolates/{full_name}/cat_reads/PE_R1.fastq.gz output/isolates/{full_name}/cat_reads/PE_R2.fastq.gz  
 
                 # TODO: check if trim galore supports multiple cores now? 
                 # TODO: Find a way to save the fastq results? They should be calculated within trim_galore
@@ -217,7 +219,9 @@ for prefix, path in reads_paths_parsed.items():
         gwf.target(sanify('_3_assemble_', full_name),
             inputs = [f"output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz",
                       f"output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz"],
-            outputs = [],
+            outputs = [f"output/isolates/{full_name}/unicycler/assembly.fasta",
+                       f"output/isolates/{full_name}/unicycler/{full_name}_assembly.fasta",
+                       f"output/isolates/{full_name}/unicycler/assembly-stats.tab"],
             cores = 8,
             memory = '128gb',
             walltime = '2-00:00:00',
@@ -225,13 +229,38 @@ for prefix, path in reads_paths_parsed.items():
 
                 mkdir -p output/isolates/{full_name}/unicycler
 
-                #unicycler --min_fasta_length 500 -1 output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz -2 output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz -o output/isolates/{full_name}/unicycler
-                assembly-stats -t isolates/{full_name}/assembly/assembly.fasta > output/isolates/{full_name}/assembly/assembly-stats.tab
+                unicycler --min_fasta_length 500 -1 output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz -2 output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz -o output/isolates/{full_name}/unicycler
+
+                cp output/isolates/{full_name}/unicycler/assembly.fasta output/isolates/{full_name}/unicycler/{full_name}_assembly.fasta
+
+
+                assembly-stats -t output/isolates/{full_name}/unicycler/assembly.fasta > output/isolates/{full_name}/unicycler/assembly-stats.tab
 
 
                 """
+                
             
-        #break
+
+        gwf.target(sanify('_4_prokka', full_name),
+            inputs  = [f"output/isolates/{full_name}/unicycler/assembly.fasta"],
+            outputs  = [f"output/isolates/{full_name}/prokka/{full_name}.gff"],
+            cores = 8,
+            memory = '4g',
+            walltime = '04:00:00',
+            account = 'clinicalmicrobio') << f"""
+                mkdir -p output/isolates/{full_name}/prokka
+
+                prokka --cpu 8 --force --prefix {full_name} --outdir output/isolates/{full_name}/prokka output/isolates/{full_name}/unicycler/{full_name}_assembly.fasta
+                
+                
+
+                """
+        
+
+
+
+
+
 
 
 
