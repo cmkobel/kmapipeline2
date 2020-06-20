@@ -67,6 +67,7 @@ print()
 # If this can not be achieved, an error will be thrown.
 
 for prefix, path in reads_paths_parsed.items():
+    check_set = set() # With this set, I'm checking that each each file in the path is used once only.
 
     glob_ = sorted(glob.glob(f"{path}/*.fastq.gz"))
     glob_basenames = [os.path.basename(i) for i in glob_]
@@ -76,10 +77,6 @@ for prefix, path in reads_paths_parsed.items():
     print()
 
     max_name_len = max([len(i) for i in glob_basenames])
-
-    for i in glob_basenames:
-        #print(i)
-        pass
 
 
     def parallel_end_eating(glob_basenames):
@@ -127,11 +124,11 @@ for prefix, path in reads_paths_parsed.items():
 
     # TODO: Make a mechanism that warns if duplicates exist.
 
+    
     for sample_name in sample_names:
 
-
-        if not sample_name.startswith("Axx_A"):
-            continue
+        #if not sample_name.startswith("Axx_A"):
+        #    continue
 
 
 
@@ -139,6 +136,8 @@ for prefix, path in reads_paths_parsed.items():
         print('Generating jobs for', full_name, '...')
 
         reads = sorted([i for i in glob_basenames if i.startswith(sample_name) and len(i) == len(sample_name) + suffix_length]) # assuming lanes first
+        for i in reads:
+            check_set.add(i)
         #print(reads)
 
         reads_forward = reads[::2]
@@ -270,7 +269,10 @@ for prefix, path in reads_paths_parsed.items():
                 
 
                 """
-        
+
+    # Sanity check on the number of reads available and used.
+    if len(check_set) != n:
+        raise Exception(f"(Fatal) The number of reads available ({n}) in the path ({path}) is not equal to the number of reads used ({len(check_set)})")        
 
 
 
