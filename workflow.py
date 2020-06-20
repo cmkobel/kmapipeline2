@@ -44,6 +44,7 @@ with open(input_paths_file, 'r') as reads_paths:
         prefix = parse[0]
         method = parse[1] # not implemented yet
         path = parse[2]
+        # TODO: Check whether a slash has already been set into the path given in reads_paths_tab col 3 (the path = parse[2] variable.)
         
         if len(parse) != 3:
             raise Exception("Error: Make sure that the input file is correctly tab-delimited on all rows")
