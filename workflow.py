@@ -83,11 +83,13 @@ for prefix, path in reads_paths_parsed.items():
 
 
     def parallel_end_eating(glob_basenames):
+        
         min_length = 5
         
         oldset = set()
         newset = set()
         has_been_correct = False
+        global suffix_length
         
         for i in range(1, max_name_len-(min_length-1)): # TODO: En alternativ måde at implementere dette på: Tjek fra starten af strengene, og så stop når min_length er oversteget og alle symboler er ens. Jeg ved ikke om det ville være hurtigere på den måde.
             oldset = newset
@@ -99,15 +101,21 @@ for prefix, path in reads_paths_parsed.items():
 
             if len(newset) < n/4/2:
                 if has_been_correct:
+                    suffix_length = i-1
+                    print('oldset used')
                     return oldset
                 else:  
                     raise Exception('The assumptions on the file names are not met. Or there is a bug.')
 
             
         if has_been_correct:
+            suffix_length = i
+            print('newset used')
             return newset
 
+
     sample_names = sorted(parallel_end_eating(glob_basenames))
+    print('this is after the end eating, and the suffix length was', suffix_length)
 
     print(f"These are the sample_names for prefix '{prefix}':")
     print(sample_names)
@@ -120,6 +128,13 @@ for prefix, path in reads_paths_parsed.items():
     # TODO: Make a mechanism that warns if duplicates exist.
 
     for sample_name in sample_names:
+
+
+        if not sample_name.startswith("Axx_A"):
+            continue
+
+
+
         full_name = prefix + '_' + sample_name
         print('Generating jobs for', full_name, '...')
 
