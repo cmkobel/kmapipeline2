@@ -138,7 +138,7 @@ for prefix, path in reads_paths_parsed.items():
         full_name = prefix + '_' + sample_name
         print('Generating jobs for', full_name, '...')
 
-        reads = sorted([i for i in glob_basenames if i.startswith(sample_name)]) # assuming lanes first
+        reads = sorted([i for i in glob_basenames if i.startswith(sample_name) and len(i) == len(sample_name) + suffix_length]) # assuming lanes first
         #print(reads)
 
         reads_forward = reads[::2]
