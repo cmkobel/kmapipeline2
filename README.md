@@ -2,7 +2,7 @@
 
 This is an automated pipeline that takes a list of paths with microbial isolates (PE).
 
-Quality control is followed by species detection, assembly and finally comparisons between groups of isolates: Core genome analysis etc.
+Quality control is followed by species detection, assembly and finally comparisons in groups of isolates: Core genome analysis etc.
 
 A simple database is maintained with relevant metadata for the isolates. This database can interface with nullarbor, tormes, bifrost etc. 
 
