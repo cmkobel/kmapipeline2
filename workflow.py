@@ -405,4 +405,6 @@ for prefix, path in reads_paths_parsed.items():
 
 
 
-#TODO: count to 8 when adding reads for catting.
+#TODO: count to 8 when adding reads for catting. 
+       Well, that is actually a bad idea: It will make the pipeline less flexible. 
+       Let's say you want to add samples which are not PE4 but PE1 ?
