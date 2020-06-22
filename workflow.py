@@ -273,19 +273,74 @@ for prefix, path in reads_paths_parsed.items():
 
                 """
 
+
+
+
+
+        gwf.target(sanify('_5_report', full_name),
+            inputs = [
+
+                      f"output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab",
+
+                      f"output/isolates/{full_name}/cat_reads/PE_R1.fastq.gz",
+                      f"output/isolates/{full_name}/cat_reads/PE_R2.fastq.gz",
+                      
+                      f"output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz",
+                      f"output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz",
+
+                      f"output/isolates/{full_name}/unicycler/assembly.fasta",
+                      f"output/isolates/{full_name}/prokka/{full_name}.gff"
+                      ],
+            outputs = [f"output/isolates/{full_name}/report/report.txt"],
+            cores = 1,
+            memory = '2g',
+            walltime = '01:00:00',
+            account = 'clinicalmicrobio') << f"""
+                # Run a series of python, bash and R-scripts in order to create a report that outlines the results for each sample.
+                # The main results should be printed to the database.tab file.
+
+                sleep $[ ( $RANDOM % 60 )  + 1 ]s
+
+                # TODO: generate report: Do this first, because if it fails, nothing should be written to the database.tab later in this spec.
+                mkdir -p output/isolates/{full_name}/report
+                touch output/isolates/{full_name}/report/report.txt
+
+
+                # Write to database.tab
+                kraken2=$(head -n 1 output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab | awk '{{$1 = ""; print $0;}}' | sed -e 's/^[[:space:]]*//')
+                kraken2_p=$(head -n 1 output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab | awk '{{print $1}}' | sed -e 's/%//')
+
+                cat_R1="output/isolates/{full_name}/cat_reads/PE_R1.fastq.gz"
+                cat_R2="output/isolates/{full_name}/cat_reads/PE_R2.fastq.gz"
+
+                trim_R1="output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz"
+                trim_R2="output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz"
+
+                unicycler_assembly="output/isolates/{full_name}/unicycler/assembly.fasta"
+
+                unicycler_sum=$(tail -n 1 output/isolates/{full_name}/unicycler/assembly-stats.tab | awk '{{print $2}}')
+                unicycler_ncontigs=$(tail -n 1 output/isolates/{full_name}/unicycler/assembly-stats.tab | awk '{{print $3}}')
+                unicycler_longest=$(tail -n 1 output/isolates/{full_name}/unicycler/assembly-stats.tab | awk '{{print $5}}')
+
+
+                prokka_gff="output/isolates/{full_name}/prokka/{full_name}.gff"
+                prokka_CDS=$(cat output/isolates/{full_name}/prokka/{full_name}.txt | awk '$1 == "CDS:" {{print $0}}' | awk '{{print $2}}')
+
+
+                # full_name sample_name tech    kraken2_p   kraken2 cat_reads   trim_reads  unicycler_assembly   unicycler_ncontigs unicycler_sum   unicycler_longest        prokka_gff  prokka_CDS date
+
+                echo -e "{full_name}\t{sample_name}\tPE4\t$kraken2_p\t$kraken2\t[\\"$cat_R1\\", \\"$cat_R2\\"]\t[\\"$trim_R1\\", \\"$trim_R2\\"]\t$unicycler_assembly\t$unicycler_ncontigs\t$unicycler_sum\t$unicycler_longest\t$prokka_gff\t$prokka_CDS\t$(date +%F_%H-%M-%S)\t{prefix}\t{path}" >> database.tab
+
+
+                """
+
+    #    break
+    #break
+
+
     # Sanity check on the number of reads available and used.
     if len(check_set) != n:
         raise Exception(f"(Fatal) The number of reads available ({n}) in the path ({path}) is not equal to the number of reads used ({len(check_set)}).")        
-
-
-
-
-
-
-
-
-
-
 
 
 
