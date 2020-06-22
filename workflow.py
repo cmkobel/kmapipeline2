@@ -74,9 +74,9 @@ with open(input_paths_file, 'r') as reads_paths:
 print("These are the paths where sample-names will be extracted from.")
 for key, path in reads_paths_parsed.items():
     if path in paths_done:
-        status_msg = 'skipping (complete)    :'
+        status_msg = 'complete:  will be skipped  :'
     else:
-        status_msg = 'queueing (incomplete)  :'
+        status_msg = 'incomplete: will be queued  :'
     print(f"  {status_msg}  \"{key}\" @ {path}")
 print()
 
@@ -185,6 +185,7 @@ for prefix, path in reads_paths_parsed.items():
             check_set.add(i)
         #print(reads)
 
+
         reads_forward = reads[::2]
         reads_reverse = reads[1::2]
 
@@ -195,7 +196,7 @@ for prefix, path in reads_paths_parsed.items():
 
 
         for i, j in zip(reads_forward, reads_reverse):
-            print(f"   {i}\t{j}")
+            print(f"   {i}  {j}")
 
 
         print()
