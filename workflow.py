@@ -345,3 +345,4 @@ for prefix, path in reads_paths_parsed.items():
 
 
 
+#TODO: count to 8 when adding reads for catting.
