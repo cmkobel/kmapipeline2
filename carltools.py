@@ -15,3 +15,9 @@ def sanify(*input):
             output.append('_')
 
     return ''.join(output)
+
+
+def dprint(*input):
+
+    if not True:
+        print(*input)

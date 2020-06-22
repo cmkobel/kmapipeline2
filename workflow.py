@@ -3,7 +3,8 @@
 from gwf import *
 import glob
 import os 
-from carltools import sanify
+from carltools import *
+
 
 
 gwf = Workflow(defaults={
@@ -35,6 +36,22 @@ std_setup = {'cores': 8,
              'account': 'clinicalmicrobio'}
 
 
+# TODO: Make a mechanism that warns if duplicates exist.
+# This will be implemented using the paths_done.tab file.
+# could be moved to a script? To keep the pipeline lean.
+paths_done = []
+with open('other/paths_done.tab') as paths_done_open:
+    first_line = True
+    for line in paths_done_open:
+        if first_line == True:
+            first_line = False
+            continue
+        path = line.split('\t')[0]
+        paths_done.append(path)
+
+
+# Find the paths to parse:
+# Underway, we will check whether the path has already been completely processed.
 reads_paths_parsed = {}
 with open(input_paths_file, 'r') as reads_paths:
     for line in reads_paths:
@@ -54,9 +71,13 @@ with open(input_paths_file, 'r') as reads_paths:
 
 
 
-
 print("These are the paths where sample-names will be extracted from.")
-print(reads_paths_parsed)
+for key, path in reads_paths_parsed.items():
+    if path in paths_done:
+        status_msg = 'skipping (complete)    :'
+    else:
+        status_msg = 'queueing (incomplete)  :'
+    print(f"  {status_msg}  \"{key}\" @ {path}")
 print()
 
 
@@ -69,14 +90,32 @@ print()
 # By eating the suffixes from the end until there are (number_of_files)/4/2 unique sample names, we can extract the sample names.
 # A number of small sanity checks are performed underway.
 
+
+
+
+
+print('Now iterating over the remaining paths:')
+
+
+
 for prefix, path in reads_paths_parsed.items():
+    if path in paths_done:
+        continue
+
+    print()
+    print()
+    print()
+    print(f"#                   {path}                   #") 
+    print(f"{(40 + len(path))*'~'}")
+    print(f"prefix: \"{prefix}\"")
+
     check_set = set() # With this set, I'm checking that each each file in the path is used once only.
 
     glob_ = sorted(glob.glob(f"{path}/*.fastq.gz"))
     glob_basenames = [os.path.basename(i) for i in glob_]
 
     n = len(glob_basenames)
-    print('n', n)
+    print(f"number of files: {n}")
     print()
 
     max_name_len = max([len(i) for i in glob_basenames])
@@ -102,7 +141,7 @@ for prefix, path in reads_paths_parsed.items():
             if len(newset) < n/4/2:
                 if has_been_correct:
                     suffix_length = i-1
-                    print('oldset used')
+                    dprint('oldset used')
                     return oldset
                 else:  
                     raise Exception('The assumptions on the file names are not met. Or there is a bug.')
@@ -110,22 +149,26 @@ for prefix, path in reads_paths_parsed.items():
             
         if has_been_correct:
             suffix_length = i
-            print('newset used')
+            dprint('newset used')
             return newset
 
 
     sample_names = sorted(parallel_end_eating(glob_basenames))
-    print('this is after the end eating, and the suffix length was', suffix_length)
+    dprint('this is after the end eating, and the suffix length was', suffix_length)
 
-    print(f"These are the sample_names for prefix '{prefix}':")
-    print(sample_names)
+    print(f"These are the {len(sample_names)} sample_names for prefix '{prefix}': ({n}/{len(sample_names)} = {n/len(sample_names)})")
+    for sn in sample_names:
+        print(f"  {sn}")
     #if not input('Continue? [y]/n ')[0].strip().upper() == 'Y':
     #    print(' user exited...')
     #    exit()
     print()
+    print()
 
 
-    # TODO: Make a mechanism that warns if duplicates exist.
+
+    
+
 
     
     for sample_name in sample_names:
@@ -134,9 +177,8 @@ for prefix, path in reads_paths_parsed.items():
         #    continue
 
 
-
         full_name = prefix + '_' + sample_name
-        print('Generating jobs for', full_name, '...')
+        print(' Generating jobs for', full_name, '...')
 
         reads = sorted([i for i in glob_basenames if i.startswith(sample_name) and len(i) == len(sample_name) + suffix_length]) # assuming lanes first
         for i in reads:
@@ -149,9 +191,11 @@ for prefix, path in reads_paths_parsed.items():
         reads_forward_full = [path + i for i in reads_forward]
         reads_reverse_full = [path + i for i in reads_reverse]
 
+        # TODO: An idea for a sanity check: Add the number of forward+reverse reads for each sample to a set. Check tha the size of the set is 1.
+
 
         for i, j in zip(reads_forward, reads_reverse):
-            print(f"  {i}\t{j}")
+            print(f"   {i}\t{j}")
 
 
         print()
@@ -233,14 +277,15 @@ for prefix, path in reads_paths_parsed.items():
                 """
 
 
+
         gwf.target(sanify('_3_assemble_', full_name),
             inputs = [f"output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz",
                       f"output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz"],
             outputs = [f"output/isolates/{full_name}/unicycler/assembly.fasta",
                        f"output/isolates/{full_name}/unicycler/{full_name}_assembly.fasta",
                        f"output/isolates/{full_name}/unicycler/assembly-stats.tab"],
-            cores = 8,
-            memory = '128gb',
+            cores = 4,
+            memory = '64gb', 
             walltime = '2-00:00:00',
             account = 'clinicalmicrobio') << f"""
 
@@ -256,9 +301,9 @@ for prefix, path in reads_paths_parsed.items():
 
                 """
                 
-            
 
-        gwf.target(sanify('_4_prokka', full_name),
+            
+        gwf.target(sanify('_4_prokka_', full_name),
             inputs  = [f"output/isolates/{full_name}/unicycler/assembly.fasta"],
             outputs  = [f"output/isolates/{full_name}/prokka/{full_name}.gff"],
             cores = 8,
@@ -275,9 +320,7 @@ for prefix, path in reads_paths_parsed.items():
 
 
 
-
-
-        gwf.target(sanify('_5_report', full_name),
+        gwf.target(sanify('_5_report_', full_name),
             inputs = [
 
                       f"output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab",
@@ -331,6 +374,23 @@ for prefix, path in reads_paths_parsed.items():
 
                 echo -e "{full_name}\t{sample_name}\tPE4\t$kraken2_p\t$kraken2\t[\\"$cat_R1\\", \\"$cat_R2\\"]\t[\\"$trim_R1\\", \\"$trim_R2\\"]\t$unicycler_assembly\t$unicycler_ncontigs\t$unicycler_sum\t$unicycler_longest\t$prokka_gff\t$prokka_CDS\t$(date +%F_%H-%M-%S)\t{prefix}\t{path}" >> database.tab
 
+
+                """
+
+
+    # Kill path
+    # When all isolates from a path has been correctly processed, the path is added to a file (paths_done.tab). This disables the path from being processed in the pipeline.
+    if True: # Can be easily disabled for debugging.
+        gwf.target(sanify('_99_kill', full_name),
+            inputs = [f"output/isolates/{prefix + '_' + sample_name}/report/report.txt" for sample_name in sample_names],
+            outputs = [],
+            cores = 1,
+                memory = '2g',
+                walltime = '01:00:00',
+                account = 'clinicalmicrobio') << f"""
+
+                mkdir -p other
+                echo -e "{path}\t{prefix}\t$(date +%F_%H-%M-%S)" >> other/paths_done.tab
 
                 """
 
