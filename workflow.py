@@ -58,7 +58,7 @@ with open(input_paths_file, 'r') as reads_paths:
 
         if line[0] in ['#', '\n']:
             continue # Comments and newlines are OK
-        parse = line.strip().split('\t') # TODO: only strip newlines. An "empty" tab in the end should not be a parsing error, even though it doesn't make sense to not have a path..
+        parse = line.strip('\n').split('\t') # TODO: only strip newlines. An "empty" tab in the end should not be a parsing error, even though it doesn't make sense to not have a path..
         
         prefix = parse[0]
         method = parse[1] # not implemented yet
@@ -221,8 +221,8 @@ for prefix, path in reads_paths_parsed.items():
             if has_been_correct and check2(set_0):
                 dprint()
                 dprint('this should be it ')
-                suffix_length = max_name_len-i + 2
-                print('the suffix length is given at ', i, 'as', suffix_length)
+                suffix_length = max_name_len - i + 2
+                dprint('the suffix length is given at i', i, 'as', suffix_length)
                 return set_2
 
 
