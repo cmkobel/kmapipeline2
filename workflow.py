@@ -118,17 +118,19 @@ for prefix, path in reads_paths_parsed.items():
     print(f"number of files: {n}")
     print()
 
-    max_name_len = max([len(i) for i in glob_basenames])
+    #max_name_len = max([len(i) for i in glob_basenames])
+
 
 
     def parallel_end_eating(glob_basenames):
+        # deprecated
         
         min_length = 5
         
         oldset = set()
         newset = set()
         has_been_correct = False
-        global suffix_length
+        global suffix_length # We need this much later in the program.
         
         for i in range(1, max_name_len-(min_length-1)): # TODO: En alternativ måde at implementere dette på: Tjek fra starten af strengene, og så stop når min_length er oversteget og alle symboler er ens. Jeg ved ikke om det ville være hurtigere på den måde.
             oldset = newset
@@ -140,7 +142,7 @@ for prefix, path in reads_paths_parsed.items():
 
             if len(newset) < n/4/2:
                 if has_been_correct:
-                    suffix_length = i-1
+                    suffix_length = i-1 # The suffix length is used later, to check that the correct sample names and files are linked.
                     dprint('oldset used')
                     return oldset
                 else:  
@@ -152,8 +154,83 @@ for prefix, path in reads_paths_parsed.items():
             dprint('newset used')
             return newset
 
+    min_name_len = min([len(i) for i in glob_basenames])
 
-    sample_names = sorted(parallel_end_eating(glob_basenames))
+    
+
+
+    # This is the new one
+    def parallel_right_align_eating(glob_basenames):
+        """ This in an improvement of the old 'parallel_end_eating()'.
+            'parallel_right_align_eating()' eats from the start, relative to a common length. 
+            When n/4/2 unique sample names have been found, the parallel eating continues until a common character occurs in _all_ samples.
+            Then, the sample names are found.
+            This, I think is the most robust way of inferring the sample names. The old function had problems recognizing the complete sample names if they had wildly different endings.
+        """
+
+        global suffix_length # The suffix length is used later, to check that the correct sample names and files are linked.
+
+        n = len(glob_basenames)
+        min_name_len = min([len(i) for i in glob_basenames])
+        max_name_len = max([len(i) for i in glob_basenames])
+        diff = max_name_len - min_name_len
+
+        # Først tjekker has_been_correct at antallet passer med n/4/2
+        # Derefter kigges der efter 2 ens bogstaver i alle.
+
+        # This routine checks that the last 2 letters are the same in all strings in the set.
+        def check2(set_):
+            set_l = list(set_)
+
+            for j in set_l:
+                if j[-2:] != set_l[0][-2:]:
+                    return False
+
+            return True
+
+            
+        set_0 = set()
+        set_1 = set()
+        set_2 = set()
+
+        has_been_correct = False # This is a one way switch.
+
+        for i in range(diff+1, max_name_len+1):
+
+            # shift the saved sets:
+            set_2 = set_1
+            set_1 = set_0
+            set_0 = set()
+            
+            set_0 = set(j[:len(j) - max_name_len  + i] for j in glob_basenames)
+
+            # Check that the number of samples is correct (n/4/2):
+            if len(set_0) == n/4/2:
+                has_been_correct = True
+                
+                # Debug prints:
+                if not True:
+                    dprint(len(set_0))
+                    for k in set_0:
+                        dprint('', k)
+                    print()
+
+                #continue # No need to do more in this iteration
+                
+            # Check that the last 2 letters in all suffixes is matching
+            if has_been_correct and check2(set_0):
+                dprint()
+                dprint('this should be it ')
+                suffix_length = max_name_len-i + 2
+                print('the suffix length is given at ', i, 'as', suffix_length)
+                return set_2
+
+
+
+    #sample_names = sorted(parallel_end_eating(glob_basenames))
+    sample_names = sorted(parallel_right_align_eating(glob_basenames))
+    # I think they have to be sorted, because of the way the grouping into lanes and directions is done
+
     dprint('this is after the end eating, and the suffix length was', suffix_length)
 
     print(f"These are the {len(sample_names)} sample_names for prefix '{prefix}': ({n}/{len(sample_names)} = {n/len(sample_names)})")
@@ -205,8 +282,13 @@ for prefix, path in reads_paths_parsed.items():
         #if not input('Continue? [y]/n ')[0].strip().upper() == 'Y':
         #    print(' user exited...')
         #    exit()
+
+        # Skip blacklisted samples. Some samples just don't comply.
+        blacklist = ['HA_101']
+        if sample_name in blacklist:
+            continue
         
-        gwf.target(sanify('_0_cat_reads_', full_name),
+        gwf.target(sanify('_0_catrds_', full_name),
             inputs = reads_forward_full + reads_reverse_full,
             outputs = [f"output/isolates/{full_name}/cat_reads/PE_R1.fastq.gz",
                        f"output/isolates/{full_name}/cat_reads/PE_R2.fastq.gz"],
@@ -235,7 +317,7 @@ for prefix, path in reads_paths_parsed.items():
 
 
 
-        gwf.target(sanify('_1_trim_', full_name),
+        gwf.target(sanify('_1_trim___', full_name),
             inputs = [f"output/isolates/{full_name}/cat_reads/PE_R1.fastq.gz",
                       f"output/isolates/{full_name}/cat_reads/PE_R2.fastq.gz"],
             outputs = [f"output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz",
@@ -279,7 +361,7 @@ for prefix, path in reads_paths_parsed.items():
 
 
 
-        gwf.target(sanify('_3_assemble_', full_name),
+        gwf.target(sanify('_3_asembl_', full_name),
             inputs = [f"output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz",
                       f"output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz"],
             outputs = [f"output/isolates/{full_name}/unicycler/assembly.fasta",
@@ -382,8 +464,8 @@ for prefix, path in reads_paths_parsed.items():
     # Kill path
     # When all isolates from a path has been correctly processed, the path is added to a file (paths_done.tab). This disables the path from being processed in the pipeline.
     if True: # Can be easily disabled for debugging.
-        gwf.target(sanify('_99_kill', full_name),
-            inputs = [f"output/isolates/{prefix + '_' + sample_name}/report/report.txt" for sample_name in sample_names],
+        gwf.target(sanify('_99_kill__', full_name),
+            inputs = [f"output/isolates/{prefix + '_' + sample_name}/report/report.txt" for sample_name in sample_names if sample_name not in blacklist],
             outputs = [],
             cores = 1,
                 memory = '2g',
