@@ -452,9 +452,10 @@ for prefix, path in reads_paths_parsed.items():
                 prokka_gff="output/isolates/{full_name}/prokka/{full_name}.gff"
                 prokka_CDS=$(cat output/isolates/{full_name}/prokka/{full_name}.txt | awk '$1 == "CDS:" {{print $0}}' | awk '{{print $2}}')
 
+                mkdir -p database/backup/
+                cp database.tab database/backup/database_backup_$(date +%F_%H-%M-%S).tab
 
                 # full_name sample_name tech    kraken2_p   kraken2 cat_reads   trim_reads  unicycler_assembly   unicycler_ncontigs unicycler_sum   unicycler_longest        prokka_gff  prokka_CDS date
-
                 echo -e "{full_name}\t{sample_name}\tPE4\t$kraken2_p\t$kraken2\t[\\"$cat_R1\\", \\"$cat_R2\\"]\t[\\"$trim_R1\\", \\"$trim_R2\\"]\t$unicycler_assembly\t$unicycler_ncontigs\t$unicycler_sum\t$unicycler_longest\t$prokka_gff\t$prokka_CDS\t$(date +%F_%H-%M-%S)\t{prefix}\t{path}" >> database.tab
 
 
@@ -468,8 +469,8 @@ for prefix, path in reads_paths_parsed.items():
             inputs = [f"output/isolates/{prefix + '_' + sample_name}/report/report.txt" for sample_name in sample_names if sample_name not in blacklist],
             outputs = [],
             cores = 1,
-                memory = '2g',
-                walltime = '01:00:00',
+                memory = '1g',
+                walltime = '00:10:00',
                 account = 'clinicalmicrobio') << f"""
 
                 mkdir -p other
