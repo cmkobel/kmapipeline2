@@ -64,7 +64,7 @@ with open(input_paths_file, 'r') as reads_paths:
         dprint('the len', len(parse))
         try:
             prefix = parse[0]
-            method = parse[1] # not implemented yet
+            method = parse[1] # better name: technology or tech
             path = parse[2]
             lanes_first = parse[3]
         except Exception as e:
@@ -114,10 +114,22 @@ print('Now iterating over the remaining paths:')
 
 
 for prefix, dict_ in reads_paths_parsed.items():
-    dprint('items', prefix, dict_)
 
     if dict_['path'] in paths_done:
         continue
+
+    if dict_['method'] == "PE4":
+        PE_method = 4
+    elif dict_['method'] == "PE2": # Warning; has not been tested yet.
+        PE_method = 2
+    elif dict_['method'] == "PE1": # Attention, only tested on 200626
+        PE_method = 1
+
+    else:
+        print('Fatal: method', dict_['method'], 'is not implemented yet')
+        exit()
+
+    print('PE_method', PE_method)
 
     print()
     print()
@@ -125,14 +137,16 @@ for prefix, dict_ in reads_paths_parsed.items():
     print(f"#                   {dict_['path']}                   #") 
     print(f"{(40 + len(dict_['path']))*'~'}")
     print(f"prefix: \"{prefix}\"")
+    print('dict_:', dict_)
 
     check_set = set() # With this set, I'm checking that each each file in the dict_['path'] is used once only.
 
     glob_ = sorted(glob.glob(f"{dict_['path']}/*.fastq.gz"))
     glob_basenames = [os.path.basename(i) for i in glob_]
 
+    
     n = len(glob_basenames)
-    print(f"number of files: {n}")
+    print(f"number of reads files: {n}")
     print()
 
     #max_name_len = max([len(i) for i in glob_basenames])
@@ -154,10 +168,10 @@ for prefix, dict_ in reads_paths_parsed.items():
             newset = set([j[:-i] for j in glob_basenames])
          
 
-            if len(newset) == n/4/2:
+            if len(newset) == n/PE_method/2:
                 has_been_correct = True
 
-            if len(newset) < n/4/2:
+            if len(newset) < n/PE_method/2:
                 if has_been_correct:
                     suffix_length = i-1 # The suffix length is used later, to check that the correct sample names and files are linked.
                     dprint('oldset used')
@@ -177,7 +191,7 @@ for prefix, dict_ in reads_paths_parsed.items():
 
 
     # This is the new one
-    def parallel_right_align_eating(glob_basenames):
+    def parallel_right_align_eating(glob_basenames, PE_method):
         """ This in an improvement of the old 'parallel_end_eating()'.
             'parallel_right_align_eating()' eats from the start, relative to a common length. 
             When n/4/2 unique sample names have been found, the parallel eating continues until a common character occurs in _all_ samples.
@@ -221,8 +235,11 @@ for prefix, dict_ in reads_paths_parsed.items():
             
             set_0 = set(j[:len(j) - max_name_len  + i] for j in glob_basenames)
 
+            for set_item in set_0:
+                dprint('', set_item)
+            dprint()
             # Check that the number of samples is correct (n/4/2):
-            if len(set_0) == n/4/2:
+            if len(set_0) == n/PE_method/2:
                 has_been_correct = True
                 
                 # Debug prints:
@@ -241,11 +258,12 @@ for prefix, dict_ in reads_paths_parsed.items():
                 suffix_length = max_name_len - i + 2
                 dprint('the suffix length is given at i', i, 'as', suffix_length)
                 return set_2
+        raise Exception('for loop exhausted')
 
 
 
     #sample_names = sorted(parallel_end_eating(glob_basenames))
-    sample_names = sorted(parallel_right_align_eating(glob_basenames))
+    sample_names = sorted(parallel_right_align_eating(glob_basenames, PE_method))
     # I think they have to be sorted, because of the way the grouping into lanes and directions is done
 
     dprint('this is after the end eating, and the suffix length was', suffix_length)
@@ -265,14 +283,14 @@ for prefix, dict_ in reads_paths_parsed.items():
 
 
     
-    for sample_name in sample_names:
+    for i_, sample_name in enumerate(sample_names):
 
         #if not sample_name.startswith("Axx_A"):
         #    continue
 
 
         full_name = prefix + '_' + sample_name
-        print(' Generating jobs for', full_name, '...')
+        print(f" {i_+1}: Generating jobs for {full_name} ...")
 
         reads = sorted([i for i in glob_basenames if i.startswith(sample_name) and len(i) == len(sample_name) + suffix_length]) # assuming lanes first
         for i in reads:
