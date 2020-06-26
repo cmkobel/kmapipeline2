@@ -60,24 +60,39 @@ with open(input_paths_file, 'r') as reads_paths:
             continue # Comments and newlines are OK
         parse = line.strip('\n').split('\t') # TODO: only strip newlines. An "empty" tab in the end should not be a parsing error, even though it doesn't make sense to not have a path..
         
-        prefix = parse[0]
-        method = parse[1] # not implemented yet
-        path = parse[2]
+
+        dprint('the len', len(parse))
+        try:
+            prefix = parse[0]
+            method = parse[1] # not implemented yet
+            path = parse[2]
+            lanes_first = parse[3]
+        except Exception as e:
+            print(e, '\nMake sure there are four tab-delimited columns in the', input_paths_file, 'file.')
+            exit() # necessary?
         # TODO: Check whether a slash has already been set into the path given in reads_paths_tab col 3 (the path = parse[2] variable.)
         
-        if len(parse) != 3:
-            raise Exception("Error: Make sure that the input file is correctly tab-delimited on all rows")
-        reads_paths_parsed[prefix] = path
+        # lanes_first switching is not implemented yet.
+        if lanes_first == 'no': 
+            lanes_first_bool = False
+        else:
+            lanes_first_bool = True # Defaults to Truef
+
+        
+        #reads_paths_parsed[prefix] = path 
+        # deprecated
+
+        reads_paths_parsed[prefix] = {'method': method, 'path': path, 'lanes_first': lanes_first_bool}
 
 
 
 print("These are the paths where sample-names will be extracted from.")
-for key, path in reads_paths_parsed.items():
-    if path in paths_done:
+for key, dict_ in reads_paths_parsed.items():
+    if dict_['path'] in paths_done:
         status_msg = 'complete:  will be skipped  :'
     else:
         status_msg = 'incomplete: will be queued  :'
-    print(f"  {status_msg}  \"{key}\" @ {path}")
+    print(f"  {status_msg}  \"{key}\" @ {dict_['path']}")
 print()
 
 
@@ -98,20 +113,22 @@ print('Now iterating over the remaining paths:')
 
 
 
-for prefix, path in reads_paths_parsed.items():
-    if path in paths_done:
+for prefix, dict_ in reads_paths_parsed.items():
+    dprint('items', prefix, dict_)
+
+    if dict_['path'] in paths_done:
         continue
 
     print()
     print()
     print()
-    print(f"#                   {path}                   #") 
-    print(f"{(40 + len(path))*'~'}")
+    print(f"#                   {dict_['path']}                   #") 
+    print(f"{(40 + len(dict_['path']))*'~'}")
     print(f"prefix: \"{prefix}\"")
 
-    check_set = set() # With this set, I'm checking that each each file in the path is used once only.
+    check_set = set() # With this set, I'm checking that each each file in the dict_['path'] is used once only.
 
-    glob_ = sorted(glob.glob(f"{path}/*.fastq.gz"))
+    glob_ = sorted(glob.glob(f"{dict_['path']}/*.fastq.gz"))
     glob_basenames = [os.path.basename(i) for i in glob_]
 
     n = len(glob_basenames)
@@ -266,8 +283,8 @@ for prefix, path in reads_paths_parsed.items():
         reads_forward = reads[::2]
         reads_reverse = reads[1::2]
 
-        reads_forward_full = [path + i for i in reads_forward]
-        reads_reverse_full = [path + i for i in reads_reverse]
+        reads_forward_full = [dict_['path'] + i for i in reads_forward]
+        reads_reverse_full = [dict_['path'] + i for i in reads_reverse]
 
         # TODO: An idea for a sanity check: Add the number of forward+reverse reads for each sample to a set. Check tha the size of the set is 1.
 
@@ -456,14 +473,14 @@ for prefix, path in reads_paths_parsed.items():
                 cp database.tab database/backup/database_backup_$(date +%F_%H-%M-%S).tab
 
                 # full_name sample_name tech    kraken2_p   kraken2 cat_reads   trim_reads  unicycler_assembly   unicycler_ncontigs unicycler_sum   unicycler_longest        prokka_gff  prokka_CDS date
-                echo -e "{full_name}\t{sample_name}\tPE4\t$kraken2_p\t$kraken2\t[\\"$cat_R1\\", \\"$cat_R2\\"]\t[\\"$trim_R1\\", \\"$trim_R2\\"]\t$unicycler_assembly\t$unicycler_ncontigs\t$unicycler_sum\t$unicycler_longest\t$prokka_gff\t$prokka_CDS\t$(date +%F_%H-%M-%S)\t{prefix}\t{path}" >> database.tab
+                echo -e "{full_name}\t{sample_name}\tPE4\t$kraken2_p\t$kraken2\t[\\"$cat_R1\\", \\"$cat_R2\\"]\t[\\"$trim_R1\\", \\"$trim_R2\\"]\t$unicycler_assembly\t$unicycler_ncontigs\t$unicycler_sum\t$unicycler_longest\t$prokka_gff\t$prokka_CDS\t$(date +%F_%H-%M-%S)\t{prefix}\t{dict_['path']}" >> database.tab
 
 
                 """
 
 
-    # Kill path
-    # When all isolates from a path has been correctly processed, the path is added to a file (paths_done.tab). This disables the path from being processed in the pipeline.
+    # Kill dict_['path']
+    # When all isolates from a dict_['path'] has been correctly processed, the dict_['path'] is added to a file (paths_done.tab). This disables the dict_['path'] from being processed in the pipeline.
     if True: # Can be easily disabled for debugging.
         gwf.target(sanify('_99_kill__', full_name),
             inputs = [f"output/isolates/{prefix + '_' + sample_name}/report/report.txt" for sample_name in sample_names if sample_name not in blacklist],
@@ -474,7 +491,7 @@ for prefix, path in reads_paths_parsed.items():
                 account = 'clinicalmicrobio') << f"""
 
                 mkdir -p other
-                echo -e "{path}\t{prefix}\t$(date +%F_%H-%M-%S)" >> other/paths_done.tab
+                echo -e "{dict_['path']}\t{prefix}\t$(date +%F_%H-%M-%S)" >> other/paths_done.tab
 
                 """
 
@@ -484,7 +501,7 @@ for prefix, path in reads_paths_parsed.items():
 
     # Sanity check on the number of reads available and used.
     if len(check_set) != n:
-        raise Exception(f"(Fatal) The number of reads available ({n}) in the path ({path}) is not equal to the number of reads used ({len(check_set)}).")        
+        raise Exception(f"(Fatal) The number of reads available ({n}) in the path ({dict_['path']}) is not equal to the number of reads used ({len(check_set)}).")        
 
 
 
