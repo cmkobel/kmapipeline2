@@ -137,7 +137,7 @@ for prefix, dict_ in reads_paths_parsed.items():
     print(f"#                   {dict_['path']}                   #") 
     print(f"{(40 + len(dict_['path']))*'~'}")
     print(f"prefix: \"{prefix}\"")
-    print('dict_:', dict_)
+    print('attributes:', dict_)
 
     check_set = set() # With this set, I'm checking that each each file in the dict_['path'] is used once only.
 
@@ -268,7 +268,7 @@ for prefix, dict_ in reads_paths_parsed.items():
 
     dprint('this is after the end eating, and the suffix length was', suffix_length)
 
-    print(f"These are the {len(sample_names)} sample_names for prefix '{prefix}': ({n}/{len(sample_names)} = {n/len(sample_names)})")
+    print(f"These are the {len(sample_names)} sample_names for prefix '{prefix}': ({n}/{len(sample_names)} = {n/len(sample_names)} files per isolate)")
     for sn in sample_names:
         print(f"  {sn}")
     #if not input('Continue? [y]/n ')[0].strip().upper() == 'Y':
@@ -290,7 +290,6 @@ for prefix, dict_ in reads_paths_parsed.items():
 
 
         full_name = prefix + '_' + sample_name
-        print(f" {i_+1}: Generating jobs for {full_name} ...")
 
         reads = sorted([i for i in glob_basenames if i.startswith(sample_name) and len(i) == len(sample_name) + suffix_length]) # assuming lanes first
         for i in reads:
@@ -300,9 +299,13 @@ for prefix, dict_ in reads_paths_parsed.items():
 
         reads_forward = reads[::2]
         reads_reverse = reads[1::2]
+        
 
         reads_forward_full = [dict_['path'] + i for i in reads_forward]
         reads_reverse_full = [dict_['path'] + i for i in reads_reverse]
+        
+        spacer = (len(reads_forward[0]) - len(sample_name)-5) * ' ' # -5 is for the length of "(R1)"
+        print(f" {i_+1}) Generating jobs for {full_name} ...\n  >{sample_name} (R1){spacer} >{sample_name} (R2)")
 
         # TODO: An idea for a sanity check: Add the number of forward+reverse reads for each sample to a set. Check tha the size of the set is 1.
 
@@ -319,7 +322,7 @@ for prefix, dict_ in reads_paths_parsed.items():
         #    exit()
 
         # Skip blacklisted samples. Some samples just don't comply.
-        blacklist = ['HA_101']
+        blacklist = ['HA_101', '16-138518_S10', '16-149463_S7']
         if sample_name in blacklist:
             continue
         
@@ -403,7 +406,7 @@ for prefix, dict_ in reads_paths_parsed.items():
                        f"output/isolates/{full_name}/unicycler/{full_name}_assembly.fasta",
                        f"output/isolates/{full_name}/unicycler/assembly-stats.tab"],
             cores = 4,
-            memory = '64gb', 
+            memory = '256g', 
             walltime = '2-00:00:00',
             account = 'clinicalmicrobio') << f"""
 
@@ -522,7 +525,7 @@ for prefix, dict_ in reads_paths_parsed.items():
         raise Exception(f"(Fatal) The number of reads available ({n}) in the path ({dict_['path']}) is not equal to the number of reads used ({len(check_set)}).")        
 
 
-
+print() # a nice newline between the reads-files and the gwf jobs.
 
 #TODO: count to 8 when adding reads for catting. 
        #Well, that is actually a bad idea: It will make the pipeline less flexible. 
