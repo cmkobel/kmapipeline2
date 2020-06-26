@@ -66,7 +66,12 @@ with open(input_paths_file, 'r') as reads_paths:
             prefix = parse[0]
             method = parse[1] # better name: technology or tech
             path = parse[2]
-            lanes_first = parse[3]
+            if len(parse) > 3:
+                lanes_first = parse[3]
+            else:
+                lanes_first = 'yes'
+                dprint(f"No information given about lanes first for {prefix}. Assuming lanes first.")
+
         except Exception as e:
             print(e, '\nMake sure there are four tab-delimited columns in the', input_paths_file, 'file.')
             exit() # necessary?
@@ -128,8 +133,6 @@ for prefix, dict_ in reads_paths_parsed.items():
     else:
         print('Fatal: method', dict_['method'], 'is not implemented yet')
         exit()
-
-    print('PE_method', PE_method)
 
     print()
     print()
