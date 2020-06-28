@@ -1,4 +1,7 @@
-# kmapipeline2
+![kma](logos.png) 
+
+
+
 
 This is an automated pipeline for use for many microbial isolates.
 
