@@ -1,6 +1,4 @@
-![kma](logos.png) 
-
-
+![Pipeline2](logos.png) 
 
 
 This is an automated pipeline for use for many microbial isolates.
