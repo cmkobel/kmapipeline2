@@ -1,4 +1,4 @@
-<img src="logo.png" alt="Pipeline2" width="557"/>
+<img src="logo.png" alt="Pipeline2" width="320"/>
 
 This is an automated pipeline for use for many microbial isolates.
 
