@@ -13,8 +13,14 @@ gwf = Workflow(defaults={
 })
 
 
+print("""
+                                      _____ _         _ _         ___ 
+                                     |  _  |_|___ ___| |_|___ ___|_  |
+                                     |   __| | . | -_| | |   | -_|  _|
+                                     |__|  |_|  _|___|_|_|_|_|___|___|
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~|_|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-
+""")
 
 """
 
@@ -94,10 +100,10 @@ with open(input_paths_file, 'r') as reads_paths:
 print("These are the paths where sample-names will be extracted from.")
 for key, dict_ in reads_paths_parsed.items():
     if dict_['path'] in paths_done:
-        status_msg = 'complete:  will be skipped  :'
+        status_msg = '  complete:   will be skipped: '
     else:
-        status_msg = 'incomplete: will be queued  :'
-    print(f"  {status_msg}  \"{key}\" @ {dict_['path']}")
+        status_msg = '> incomplete: will be enqueued:'
+    print(f"  {status_msg} \"{key}\" @ {dict_['path']}")
 print()
 
 
@@ -116,8 +122,6 @@ print()
 
 print('Now iterating over the remaining paths:')
 
-
-
 for prefix, dict_ in reads_paths_parsed.items():
 
     if dict_['path'] in paths_done:
@@ -131,8 +135,7 @@ for prefix, dict_ in reads_paths_parsed.items():
         PE_method = 1
 
     else:
-        print('Fatal: method', dict_['method'], 'is not implemented yet')
-        exit()
+        Exception('Fatal: method', dict_['method'], 'is not implemented yet')
 
     print()
     print()
@@ -145,6 +148,7 @@ for prefix, dict_ in reads_paths_parsed.items():
     check_set = set() # With this set, I'm checking that each each file in the dict_['path'] is used once only.
 
     glob_ = sorted(glob.glob(f"{dict_['path']}/*.fastq.gz"))
+    #dprint('glob', glob_) # Bliver der globbet noget?
     glob_basenames = [os.path.basename(i) for i in glob_]
 
     
@@ -155,39 +159,42 @@ for prefix, dict_ in reads_paths_parsed.items():
     #max_name_len = max([len(i) for i in glob_basenames])
 
 
-
-    def parallel_end_eating(glob_basenames):
-        # deprecated
+    # Old algorithm
+    # def parallel_end_eating(glob_basenames):
+    #     # deprecated
         
-        min_length = 5
+    #     min_length = 5
         
-        oldset = set()
-        newset = set()
-        has_been_correct = False
-        global suffix_length # We need this much later in the program.
+    #     oldset = set()
+    #     newset = set()
+    #     has_been_correct = False
+    #     global suffix_length # We need this much later in the program.
         
-        for i in range(1, max_name_len-(min_length-1)): # TODO: En alternativ måde at implementere dette på: Tjek fra starten af strengene, og så stop når min_length er oversteget og alle symboler er ens. Jeg ved ikke om det ville være hurtigere på den måde.
-            oldset = newset
-            newset = set([j[:-i] for j in glob_basenames])
+    #     for i in range(1, max_name_len-(min_length-1)): # TODO: En alternativ måde at implementere dette på: Tjek fra starten af strengene, og så stop når min_length er oversteget og alle symboler er ens. Jeg ved ikke om det ville være hurtigere på den måde.
+    #         oldset = newset
+    #         newset = set([j[:-i] for j in glob_basenames])
          
 
-            if len(newset) == n/PE_method/2:
-                has_been_correct = True
+    #         if len(newset) == n/PE_method/2:
+    #             has_been_correct = True
 
-            if len(newset) < n/PE_method/2:
-                if has_been_correct:
-                    suffix_length = i-1 # The suffix length is used later, to check that the correct sample names and files are linked.
-                    dprint('oldset used')
-                    return oldset
-                else:  
-                    raise Exception('The assumptions on the file names are not met. Or there is a bug.')
+    #         if len(newset) < n/PE_method/2:
+    #             if has_been_correct:
+    #                 suffix_length = i-1 # The suffix length is used later, to check that the correct sample names and files are linked.
+    #                 dprint('oldset used')
+    #                 return oldset
+    #             else:  
+    #                 raise Exception('The assumptions on the file names are not met. Or there is a bug.')
 
             
-        if has_been_correct:
-            suffix_length = i
-            dprint('newset used')
-            return newset
+    #     if has_been_correct:
+    #         suffix_length = i
+    #         dprint('newset used')
+    #         return newset
 
+    if n == 0:
+        raise Exception('Fatal: glob_basenames is empty.')
+    dprint('these are the glob-basenames', glob_basenames) # I wonder why it is empty when there is only one sample.
     min_name_len = min([len(i) for i in glob_basenames])
 
     
@@ -402,11 +409,11 @@ for prefix, dict_ in reads_paths_parsed.items():
 
 
 
-        gwf.target(sanify('_3_asembl_', full_name),
+        gwf.target(sanify('_3_unicyc_', full_name),
             inputs = [f"output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz",
                       f"output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz"],
             outputs = [f"output/isolates/{full_name}/unicycler/assembly.fasta",
-                       f"output/isolates/{full_name}/unicycler/{full_name}_assembly.fasta",
+                       f"output/isolates/{full_name}/unicycler/final_assembly/{full_name}.fasta",
                        f"output/isolates/{full_name}/unicycler/assembly-stats.tab"],
             cores = 4,
             memory = '256g', 
@@ -417,7 +424,9 @@ for prefix, dict_ in reads_paths_parsed.items():
 
                 unicycler --min_fasta_length 500 -1 output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz -2 output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz -o output/isolates/{full_name}/unicycler
 
-                cp output/isolates/{full_name}/unicycler/assembly.fasta output/isolates/{full_name}/unicycler/{full_name}_assembly.fasta
+                # a file with a name might be easier to work with.                
+                mkdir -p output/isolates/{full_name}/unicycler/final_assembly
+                cp output/isolates/{full_name}/unicycler/assembly.fasta output/isolates/{full_name}/unicycler/final_assembly/{full_name}.fasta
 
 
                 assembly-stats -t output/isolates/{full_name}/unicycler/assembly.fasta > output/isolates/{full_name}/unicycler/assembly-stats.tab
@@ -436,7 +445,7 @@ for prefix, dict_ in reads_paths_parsed.items():
             account = 'clinicalmicrobio') << f"""
                 mkdir -p output/isolates/{full_name}/prokka
 
-                prokka --cpu 8 --force --prefix {full_name} --outdir output/isolates/{full_name}/prokka output/isolates/{full_name}/unicycler/{full_name}_assembly.fasta
+                prokka --cpu 8 --force --prefix {full_name} --outdir output/isolates/{full_name}/prokka output/isolates/{full_name}/unicycler/final_assembly/{full_name}.fasta
                 
                 
 
@@ -455,25 +464,26 @@ for prefix, dict_ in reads_paths_parsed.items():
                       f"output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz",
                       f"output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz",
 
-                      f"output/isolates/{full_name}/unicycler/assembly.fasta",
+                      f"output/isolates/{full_name}/unicycler/final_assembly/{full_name}.fasta",
                       f"output/isolates/{full_name}/prokka/{full_name}.gff"
                       ],
-            outputs = [f"output/isolates/{full_name}/report/report.txt"],
+            outputs = [f"output/isolates/{full_name}/report/meta_report.txt"],
             cores = 1,
-            memory = '2g',
-            walltime = '01:00:00',
+            memory = '1g',
+            walltime = '00:10:00',
             account = 'clinicalmicrobio') << f"""
                 # Run a series of python, bash and R-scripts in order to create a report that outlines the results for each sample.
                 # The main results should be printed to the database.tab file.
 
-                sleep $[ ( $RANDOM % 60 )  + 1 ]s
+                #sleep $[ ( $RANDOM % 2060 )  + 1 ]s
+
+
+
 
                 # TODO: generate report: Do this first, because if it fails, nothing should be written to the database.tab later in this spec.
                 mkdir -p output/isolates/{full_name}/report
-                touch output/isolates/{full_name}/report/report.txt
 
-
-                # Write to database.tab
+                # Collect data for report
                 kraken2=$(head -n 1 output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab | awk '{{$1 = ""; print $0;}}' | sed -e 's/^[[:space:]]*//')
                 kraken2_p=$(head -n 1 output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab | awk '{{print $1}}' | sed -e 's/%//')
 
@@ -483,7 +493,7 @@ for prefix, dict_ in reads_paths_parsed.items():
                 trim_R1="output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz"
                 trim_R2="output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz"
 
-                unicycler_assembly="output/isolates/{full_name}/unicycler/assembly.fasta"
+                unicycler_assembly="output/isolates/{full_name}/unicycler/final_assembly/{full_name}.fasta"
 
                 unicycler_sum=$(tail -n 1 output/isolates/{full_name}/unicycler/assembly-stats.tab | awk '{{print $2}}')
                 unicycler_ncontigs=$(tail -n 1 output/isolates/{full_name}/unicycler/assembly-stats.tab | awk '{{print $3}}')
@@ -493,12 +503,14 @@ for prefix, dict_ in reads_paths_parsed.items():
                 prokka_gff="output/isolates/{full_name}/prokka/{full_name}.gff"
                 prokka_CDS=$(cat output/isolates/{full_name}/prokka/{full_name}.txt | awk '$1 == "CDS:" {{print $0}}' | awk '{{print $2}}')
 
-                mkdir -p database/backup/
-                cp database.tab database/backup/database_backup_$(date +%F_%H-%M-%S).tab
+                method='{dict_['method']}'
 
                 # full_name sample_name tech    kraken2_p   kraken2 cat_reads   trim_reads  unicycler_assembly   unicycler_ncontigs unicycler_sum   unicycler_longest        prokka_gff  prokka_CDS date
-                echo -e "{full_name}\t{sample_name}\tPE4\t$kraken2_p\t$kraken2\t[\\"$cat_R1\\", \\"$cat_R2\\"]\t[\\"$trim_R1\\", \\"$trim_R2\\"]\t$unicycler_assembly\t$unicycler_ncontigs\t$unicycler_sum\t$unicycler_longest\t$prokka_gff\t$prokka_CDS\t$(date +%F_%H-%M-%S)\t{prefix}\t{dict_['path']}" >> database.tab
+                echo -e "{full_name}\t{sample_name}\t$method\t$kraken2_p\t$kraken2\t[\\"$cat_R1\\", \\"$cat_R2\\"]\t[\\"$trim_R1\\", \\"$trim_R2\\"]\t$unicycler_assembly\t$unicycler_ncontigs\t$unicycler_sum\t$unicycler_longest\t$prokka_gff\t$prokka_CDS\t$(date +%F_%H-%M-%S)\t{prefix}\t{dict_['path']}" > output/isolates/{full_name}/report/meta_report.txt
 
+
+                # Write to database in next job
+                # Use the blacklist, if a sample stands in the way of doing that.
 
                 """
 
@@ -506,14 +518,34 @@ for prefix, dict_ in reads_paths_parsed.items():
     # Kill dict_['path']
     # When all isolates from a dict_['path'] has been correctly processed, the dict_['path'] is added to a file (paths_done.tab). This disables the dict_['path'] from being processed in the pipeline.
     if True: # Can be easily disabled for debugging.
-        gwf.target(sanify('_99_kill__', full_name),
-            inputs = [f"output/isolates/{prefix + '_' + sample_name}/report/report.txt" for sample_name in sample_names if sample_name not in blacklist],
+        input_list = [f"output/isolates/{prefix + '_' + sample_name}/report/meta_report.txt" for sample_name in sample_names if sample_name not in blacklist]
+        gwf.target(sanify('_99_kill__', prefix),
+            inputs = input_list,
             outputs = [],
             cores = 1,
                 memory = '1g',
-                walltime = '00:10:00',
+                walltime = '01:00:00',
                 account = 'clinicalmicrobio') << f"""
 
+                # more jobs might be running at the same time. (unlikely for normal use, but possible when debugging.)
+                sleep $[ ( $RANDOM % 200 )  + 1 ]s
+
+
+                # Backup old database.
+                
+                touch database.tab # if it doesn't exist
+                mkdir -p database/backup/
+                cp database.tab database/backup/database_backup_$(date +%F_%H-%M-%S).tab
+
+                
+                # Collect to database (only happens if all jobs have successfully completed). Add samples to the blacklist if you want the rest to occur in the database.
+                # If you want done samples which come from paths where some others are not complete (or failed), you should make an external bash-script to do that.
+
+                cat {' '.join(input_list)} >> database.tab
+
+
+
+                # Exclude the path from the pipeline when all are complete.
                 mkdir -p other
                 echo -e "{dict_['path']}\t{prefix}\t$(date +%F_%H-%M-%S)" >> other/paths_done.tab
 
