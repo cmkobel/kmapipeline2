@@ -45,6 +45,7 @@ std_setup = {'cores': 8,
 # TODO: Make a mechanism that warns if duplicates exist.
 # This will be implemented using the paths_done.tab file.
 # could be moved to a script? To keep the pipeline lean.
+
 paths_done = []
 with open('other/paths_done.tab') as paths_done_open:
     first_line = True
@@ -62,38 +63,47 @@ reads_paths_parsed = {}
 with open(input_paths_file, 'r') as reads_paths:
     for line in reads_paths:
 
-        if line[0] in ['#', '\n']:
+        if line[0] in ['#', '\n']: # If the first symbol is a hash or newline.
             continue # Comments and newlines are OK
-        parse = line.strip('\n').split('\t') # TODO: only strip newlines. An "empty" tab in the end should not be a parsing error, even though it doesn't make sense to not have a path..
+        parse = line.strip('\n').split('\t') 
         
-
-        dprint('the len', len(parse))
+        
         try:
             prefix = parse[0]
-            method = parse[1] # better name: technology or tech
+            singular_sample_name = parse[1]
             path = parse[2]
-            if len(parse) > 3:
-                lanes_first = parse[3]
+            method = parse[3] # better name: technology or tech
+            
+            if len(parse) > 4:
+                lanes_first = parse[4]
             else:
                 lanes_first = 'yes'
                 dprint(f"No information given about lanes first for {prefix}. Assuming lanes first.")
 
+
+
         except Exception as e:
+            print('error at line:\n', line)
             print(e, '\nMake sure there are four tab-delimited columns in the', input_paths_file, 'file.')
             exit() # necessary?
-        # TODO: Check whether a slash has already been set into the path given in reads_paths_tab col 3 (the path = parse[2] variable.)
         
-        # lanes_first switching is not implemented yet.
+        # lanes_first switching is not implemented yet. But the parsing is done:
         if lanes_first == 'no': 
             lanes_first_bool = False
         else:
             lanes_first_bool = True # Defaults to Truef
 
-        
-        #reads_paths_parsed[prefix] = path 
-        # deprecated
 
-        reads_paths_parsed[prefix] = {'method': method, 'path': path, 'lanes_first': lanes_first_bool}
+        # TODO: Check whether a slash has already been set into the path given in reads_paths_tab col 3 (the path = parse[2] variable.)
+        if path[-1] != "/":
+            path += '/'
+
+
+        if " " in singular_sample_name:
+            raise exception('Please remove any spaces in singular_sample_name.') # TODO: test this
+
+
+        reads_paths_parsed[prefix] = {'method': method, 'path': path, 'singular_sample_name': singular_sample_name, 'lanes_first': lanes_first_bool}
 
 
 
@@ -103,7 +113,7 @@ for key, dict_ in reads_paths_parsed.items():
         status_msg = '  complete:   will be skipped: '
     else:
         status_msg = '> incomplete: will be enqueued:'
-    print(f"  {status_msg} \"{key}\" @ {dict_['path']}")
+    print(f"  {status_msg} \"{key}\" @ {dict_['path']} {dict_['singular_sample_name']} ({dict_['method']})")
 print()
 
 
@@ -119,11 +129,11 @@ print()
 
 
 
-
 print('Now iterating over the remaining paths:')
 
 for prefix, dict_ in reads_paths_parsed.items():
-
+    
+    # Skip paths which are done.
     if dict_['path'] in paths_done:
         continue
 
@@ -133,9 +143,14 @@ for prefix, dict_ in reads_paths_parsed.items():
         PE_method = 2
     elif dict_['method'] == "PE1": # Attention, only tested on 200626
         PE_method = 1
-
     else:
-        Exception('Fatal: method', dict_['method'], 'is not implemented yet')
+        Exception('Fatal: method', dict_['method'], 'is not yet implemented')
+
+
+    if dict_['singular_sample_name'] != "":
+        singular_sample_name_bool = True
+    else:
+        singular_sample_name_bool = False
 
     print()
     print()
@@ -147,8 +162,9 @@ for prefix, dict_ in reads_paths_parsed.items():
 
     check_set = set() # With this set, I'm checking that each each file in the dict_['path'] is used once only.
 
+    # Man skal passe på med at tro at der nødvendigvis er en bug. Nogengange er der faktisk ikke. Måske er det noget helt andet der gør at ens kode ikke virker.
     glob_ = sorted(glob.glob(f"{dict_['path']}/*.fastq.gz"))
-    #dprint('glob', glob_) # Bliver der globbet noget?
+    print('glob', glob_) # Bliver der globbet noget?
     glob_basenames = [os.path.basename(i) for i in glob_]
 
     
@@ -156,49 +172,14 @@ for prefix, dict_ in reads_paths_parsed.items():
     print(f"number of reads files: {n}")
     print()
 
-    #max_name_len = max([len(i) for i in glob_basenames])
 
-
-    # Old algorithm
-    # def parallel_end_eating(glob_basenames):
-    #     # deprecated
-        
-    #     min_length = 5
-        
-    #     oldset = set()
-    #     newset = set()
-    #     has_been_correct = False
-    #     global suffix_length # We need this much later in the program.
-        
-    #     for i in range(1, max_name_len-(min_length-1)): # TODO: En alternativ måde at implementere dette på: Tjek fra starten af strengene, og så stop når min_length er oversteget og alle symboler er ens. Jeg ved ikke om det ville være hurtigere på den måde.
-    #         oldset = newset
-    #         newset = set([j[:-i] for j in glob_basenames])
-         
-
-    #         if len(newset) == n/PE_method/2:
-    #             has_been_correct = True
-
-    #         if len(newset) < n/PE_method/2:
-    #             if has_been_correct:
-    #                 suffix_length = i-1 # The suffix length is used later, to check that the correct sample names and files are linked.
-    #                 dprint('oldset used')
-    #                 return oldset
-    #             else:  
-    #                 raise Exception('The assumptions on the file names are not met. Or there is a bug.')
-
-            
-    #     if has_been_correct:
-    #         suffix_length = i
-    #         dprint('newset used')
-    #         return newset
 
     if n == 0:
         raise Exception('Fatal: glob_basenames is empty.')
-    dprint('these are the glob-basenames', glob_basenames) # I wonder why it is empty when there is only one sample.
+    print('these are the glob-basenames', glob_basenames) # I wonder why it is empty when there is only one sample.
     min_name_len = min([len(i) for i in glob_basenames])
 
-    
-
+    global suffix_length
 
     # This is the new one
     def parallel_right_align_eating(glob_basenames, PE_method):
@@ -209,7 +190,7 @@ for prefix, dict_ in reads_paths_parsed.items():
             This, I think is the most robust way of inferring the sample names. The old function had problems recognizing the complete sample names if they had wildly different endings.
         """
 
-        global suffix_length # The suffix length is used later, to check that the correct sample names and files are linked.
+        #global suffix_length # The suffix length is used later, to check that the correct sample names and files are linked.
 
         n = len(glob_basenames)
         min_name_len = min([len(i) for i in glob_basenames])
@@ -273,12 +254,40 @@ for prefix, dict_ in reads_paths_parsed.items():
 
 
     #sample_names = sorted(parallel_end_eating(glob_basenames))
-    sample_names = sorted(parallel_right_align_eating(glob_basenames, PE_method))
+
+    # If there is only one sample, the pattern can not be automatically parsed.
+    if singular_sample_name_bool:
+        sample_names = [singular_sample_name]
+        suffix_length = len(glob_basenames[0]) - len(singular_sample_name)
+
+        print('sn-debug: the singular_sample_name has been finally set')
+
+
+        # Check that the pe-number is correct
+
+        if len(glob_basenames)/PE_method/2 != 1:
+            raise Exception(f"The PE number ({dict_['method']}) seems to be incorrect as the number of files ({len(glob_basenames)}) is not equal to the expected ({PE_method}*2 = {PE_method*2}).")
+
+
+    # if (len(glob_basenames)/PE_method/2 == 1.0):
+    #     with open(dict_['path'] + '/pipeline2.input.txt') as manual_text_file:
+    #         manual_sampleid = [line.strip() for line in manual_text_file][0]
+    #     print('loaded manual sampleid:', manual_sampleid)
+        
+    #     suffix_length = len(manual_sampleid) - len(glob_basenames[0]) -1
+
+    #     sample_names = [manual_sampleid]
+    else:
+        sample_names = sorted(parallel_right_align_eating(glob_basenames, PE_method))
+        print('sn-debug: the sample names have been set with parallel eating')
+    print('sn', sample_names)
     # I think they have to be sorted, because of the way the grouping into lanes and directions is done
 
-    dprint('this is after the end eating, and the suffix length was', suffix_length)
+    # This cannot be printed when there is only one sample.
+    #dprint('this is after the end eating, and the suffix length was', suffix_length)
 
-    print(f"These are the {len(sample_names)} sample_names for prefix '{prefix}': ({n}/{len(sample_names)} = {n/len(sample_names)} files per isolate)")
+
+    print(f"These are the {len(sample_names)} sample_name(s) for prefix '{prefix}': ({n}/{len(sample_names)} = {n/len(sample_names)} files per isolate <fits PE{int(n/len(sample_names)/2)}>)")
     for sn in sample_names:
         print(f"  {sn}")
     #if not input('Continue? [y]/n ')[0].strip().upper() == 'Y':
@@ -336,6 +345,12 @@ for prefix, dict_ in reads_paths_parsed.items():
         if sample_name in blacklist:
             continue
         
+
+
+
+
+
+
         gwf.target(sanify('_0_catrds_', full_name),
             inputs = reads_forward_full + reads_reverse_full,
             outputs = [f"output/isolates/{full_name}/cat_reads/PE_R1.fastq.gz",
