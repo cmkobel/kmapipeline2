@@ -179,7 +179,7 @@ for prefix, dict_ in reads_paths_parsed.items():
     #print('these are the glob-basenames', glob_basenames) # I wonder why it is empty when there is only one sample.
     min_name_len = min([len(i) for i in glob_basenames])
 
-    global suffix_length # necesarry to call it global?
+    global suffix_length 
 
     # This is the new one
     def parallel_right_align_eating(glob_basenames, PE_method):
