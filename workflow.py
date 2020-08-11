@@ -179,7 +179,7 @@ for prefix, dict_ in reads_paths_parsed.items():
     #print('these are the glob-basenames', glob_basenames) # I wonder why it is empty when there is only one sample.
     min_name_len = min([len(i) for i in glob_basenames])
 
-    global suffix_length
+    global suffix_length # necesarry to call it global?
 
     # This is the new one
     def parallel_right_align_eating(glob_basenames, PE_method):
@@ -190,7 +190,7 @@ for prefix, dict_ in reads_paths_parsed.items():
             This, I think is the most robust way of inferring the sample names. The old function had problems recognizing the complete sample names if they had wildly different endings.
         """
 
-        #global suffix_length # The suffix length is used later, to check that the correct sample names and files are linked.
+        global suffix_length # The suffix length is used later, to check that the correct sample names and files are linked.
 
         n = len(glob_basenames)
         min_name_len = min([len(i) for i in glob_basenames])
@@ -242,7 +242,7 @@ for prefix, dict_ in reads_paths_parsed.items():
 
                 #continue # No need to do more in this iteration
                 
-            # Check that the last 2 letters in all suffixes is matching
+            # Check that the last 2 letters in all suffixes are matching
             if has_been_correct and check2(set_0):
                 dprint()
                 dprint('this should be it ')
