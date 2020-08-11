@@ -113,7 +113,7 @@ for key, dict_ in reads_paths_parsed.items():
         status_msg = '  complete:   will be skipped: '
     else:
         status_msg = '> incomplete: will be enqueued:'
-    print(f"  {status_msg} \"{key}\" @ {dict_['path']} {dict_['singular_sample_name']} ({dict_['method']})")
+    print(f"  {status_msg} \"{key}\" {dict_['singular_sample_name']} @ {dict_['path']} ({dict_['method']})")
 print()
 
 
@@ -176,7 +176,7 @@ for prefix, dict_ in reads_paths_parsed.items():
 
     if n == 0:
         raise Exception('Fatal: glob_basenames is empty.')
-    print('these are the glob-basenames', glob_basenames) # I wonder why it is empty when there is only one sample.
+    #print('these are the glob-basenames', glob_basenames) # I wonder why it is empty when there is only one sample.
     min_name_len = min([len(i) for i in glob_basenames])
 
     global suffix_length
@@ -280,7 +280,7 @@ for prefix, dict_ in reads_paths_parsed.items():
     else:
         sample_names = sorted(parallel_right_align_eating(glob_basenames, PE_method))
         print('sn-debug: the sample names have been set with parallel eating')
-    print('sn', sample_names)
+    #print('sn', sample_names)
     # I think they have to be sorted, because of the way the grouping into lanes and directions is done
 
     # This cannot be printed when there is only one sample.
