@@ -333,7 +333,7 @@ for prefix, dict_ in reads_paths_parsed.items():
         reads_forward_full = [dict_['path'] + i for i in reads_forward]
         reads_reverse_full = [dict_['path'] + i for i in reads_reverse]
         
-        print(len(reads))
+        #print(len(reads))
         if len(reads) == 0:
             raise Exception(f"Fatal: No reads have matched the sample_name. Below is a comparison of (1) the given sample name and (2) the first globbed file for this path:\
                 \n\t(1) {sample_name}\
