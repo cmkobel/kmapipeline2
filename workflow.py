@@ -65,7 +65,7 @@ with open('other/paths_done.tab') as paths_done_open:
 def parse_input(input_paths_file):
     reads_paths_parsed = {}
     with open(input_paths_file, 'r') as reads_paths:
-        for line in reads_paths:
+        for _i, line in enumerate(reads_paths):
 
             if line[0] in ['#', '\n']: # If the first symbol is a hash or newline.
                 continue # Comments and newlines are OK
@@ -87,7 +87,7 @@ def parse_input(input_paths_file):
 
 
             except Exception as e:
-                print('error at line:\n', line)
+                print(f"error at line {_i+1}:\n {line}")
                 print(e, '\nMake sure there are four tab-delimited columns in the', input_paths_file, 'file.')
                 exit() # necessary?
             
@@ -333,7 +333,12 @@ for prefix, dict_ in reads_paths_parsed.items():
         reads_forward_full = [dict_['path'] + i for i in reads_forward]
         reads_reverse_full = [dict_['path'] + i for i in reads_reverse]
         
-
+        print(len(reads))
+        if len(reads) == 0:
+            raise Exception(f"Fatal: No reads have matched the sample_name. Below is a comparison of (1) the given sample name and (2) the first globbed file for this path:\
+                \n\t(1) {sample_name}\
+                \n\t(2) {glob_basenames[0]}\
+                \nPlease correct the sample name such that it matches the globbed files.")
 
         spacer = (len(reads_forward[0]) - len(sample_name)-5) * ' ' # -5 is for the length of "(R1)"
         print(f" {i_+1}) Generating jobs for {full_name} ...\n  >{sample_name} (R1){spacer} >{sample_name} (R2)")
