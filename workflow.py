@@ -563,11 +563,12 @@ for prefix, dict_ in reads_paths_parsed.items():
                 sleep $[ ( $RANDOM % 200 )  + 1 ]s
 
 
-                # Backup old database.
+                # Backup old database and reads_paths
                 
                 touch database.tab # if it doesn't exist
                 mkdir -p database/backup/
                 cp database.tab database/backup/database_backup_$(date +%F_%H-%M-%S).tab
+                cp reads_paths.tab database/backup/reads_paths_backup_$(date +%F_%H-%M-%S).tab
 
                 
                 # Collect to database (only happens if all jobs have successfully completed). Add samples to the blacklist if you want the rest to occur in the database.
