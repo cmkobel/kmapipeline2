@@ -4,6 +4,7 @@ from gwf import *
 import glob
 import os 
 from carltools import *
+import json
 
 
 
@@ -59,51 +60,58 @@ with open('other/paths_done.tab') as paths_done_open:
 
 # Find the paths to parse:
 # Underway, we will check whether the path has already been completely processed.
-reads_paths_parsed = {}
-with open(input_paths_file, 'r') as reads_paths:
-    for line in reads_paths:
 
-        if line[0] in ['#', '\n']: # If the first symbol is a hash or newline.
-            continue # Comments and newlines are OK
-        parse = line.strip('\n').split('\t') 
-        
-        
-        try:
-            prefix = parse[0]
-            singular_sample_name = parse[1]
-            path = parse[2]
-            method = parse[3] # better name: technology or tech
+# TODO: functionize this, so the variables can't bleed over into other parts of the program.
+def parse_input(input_paths_file):
+    reads_paths_parsed = {}
+    with open(input_paths_file, 'r') as reads_paths:
+        for line in reads_paths:
+
+            if line[0] in ['#', '\n']: # If the first symbol is a hash or newline.
+                continue # Comments and newlines are OK
+            parse = line.strip('\n').split('\t') 
             
-            if len(parse) > 4:
-                lanes_first = parse[4]
+            
+            try:
+                prefix = parse[0]
+                singular_sample_name = parse[1]
+                path = parse[2]
+                method = parse[3] # better name: technology or tech
+                
+                if len(parse) > 4:
+                    lanes_first = parse[4]
+                else:
+                    lanes_first = 'yes'
+                    dprint(f"No information given about lanes first for {prefix}. Assuming lanes first.")
+
+
+
+            except Exception as e:
+                print('error at line:\n', line)
+                print(e, '\nMake sure there are four tab-delimited columns in the', input_paths_file, 'file.')
+                exit() # necessary?
+            
+            # lanes_first switching is not implemented yet. But the parsing is done:
+            if lanes_first == 'no': 
+                lanes_first_bool = False
             else:
-                lanes_first = 'yes'
-                dprint(f"No information given about lanes first for {prefix}. Assuming lanes first.")
+                lanes_first_bool = True # Defaults to Truef
 
 
-
-        except Exception as e:
-            print('error at line:\n', line)
-            print(e, '\nMake sure there are four tab-delimited columns in the', input_paths_file, 'file.')
-            exit() # necessary?
-        
-        # lanes_first switching is not implemented yet. But the parsing is done:
-        if lanes_first == 'no': 
-            lanes_first_bool = False
-        else:
-            lanes_first_bool = True # Defaults to Truef
+            # TODO: Check whether a slash has already been set into the path given in reads_paths_tab col 3 (the path = parse[2] variable.)
+            if path[-1] != "/":
+                path += '/'
 
 
-        # TODO: Check whether a slash has already been set into the path given in reads_paths_tab col 3 (the path = parse[2] variable.)
-        if path[-1] != "/":
-            path += '/'
+            if " " in singular_sample_name:
+                raise exception('Please remove any spaces in singular_sample_name.') # TODO: test this
 
 
-        if " " in singular_sample_name:
-            raise exception('Please remove any spaces in singular_sample_name.') # TODO: test this
+            reads_paths_parsed[prefix] = {'method': method, 'path': path, 'singular_sample_name': singular_sample_name, 'lanes_first': lanes_first_bool}
 
+    return reads_paths_parsed
 
-        reads_paths_parsed[prefix] = {'method': method, 'path': path, 'singular_sample_name': singular_sample_name, 'lanes_first': lanes_first_bool}
+reads_paths_parsed = parse_input(input_paths_file)
 
 
 
@@ -130,6 +138,7 @@ print()
 
 
 print('Now iterating over the remaining paths:')
+
 
 for prefix, dict_ in reads_paths_parsed.items():
     
@@ -164,7 +173,7 @@ for prefix, dict_ in reads_paths_parsed.items():
 
     # Man skal passe på med at tro at der nødvendigvis er en bug. Nogengange er der faktisk ikke. Måske er det noget helt andet der gør at ens kode ikke virker.
     glob_ = sorted(glob.glob(f"{dict_['path']}/*.fastq.gz"))
-    print('glob', glob_) # Bliver der globbet noget?
+    #print('glob', glob_) # Bliver der globbet noget?
     glob_basenames = [os.path.basename(i) for i in glob_]
 
     
@@ -175,7 +184,7 @@ for prefix, dict_ in reads_paths_parsed.items():
 
 
     if n == 0:
-        raise Exception('Fatal: glob_basenames is empty.')
+        raise Exception('Fatal: glob_basenames is empty. Have you specified the correct path?')
     #print('these are the glob-basenames', glob_basenames) # I wonder why it is empty when there is only one sample.
     min_name_len = min([len(i) for i in glob_basenames])
 
@@ -257,8 +266,8 @@ for prefix, dict_ in reads_paths_parsed.items():
 
     # If there is only one sample, the pattern can not be automatically parsed.
     if singular_sample_name_bool:
-        sample_names = [singular_sample_name]
-        suffix_length = len(glob_basenames[0]) - len(singular_sample_name)
+        sample_names = [dict_['singular_sample_name']]
+        suffix_length = len(glob_basenames[0]) - len(dict_['singular_sample_name'])
 
         print('sn-debug: the singular_sample_name has been finally set')
 
@@ -285,7 +294,7 @@ for prefix, dict_ in reads_paths_parsed.items():
 
     # This cannot be printed when there is only one sample.
     #dprint('this is after the end eating, and the suffix length was', suffix_length)
-
+    
 
     print(f"These are the {len(sample_names)} sample_name(s) for prefix '{prefix}': ({n}/{len(sample_names)} = {n/len(sample_names)} files per isolate <fits PE{int(n/len(sample_names)/2)}>)")
     for sn in sample_names:
@@ -310,6 +319,7 @@ for prefix, dict_ in reads_paths_parsed.items():
 
         full_name = prefix + '_' + sample_name
 
+        
         reads = sorted([i for i in glob_basenames if i.startswith(sample_name) and len(i) == len(sample_name) + suffix_length]) # assuming lanes first
         for i in reads:
             check_set.add(i)
@@ -323,6 +333,8 @@ for prefix, dict_ in reads_paths_parsed.items():
         reads_forward_full = [dict_['path'] + i for i in reads_forward]
         reads_reverse_full = [dict_['path'] + i for i in reads_reverse]
         
+
+
         spacer = (len(reads_forward[0]) - len(sample_name)-5) * ' ' # -5 is for the length of "(R1)"
         print(f" {i_+1}) Generating jobs for {full_name} ...\n  >{sample_name} (R1){spacer} >{sample_name} (R2)")
 
