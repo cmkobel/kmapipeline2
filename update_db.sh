@@ -34,14 +34,19 @@ echo "Collecting meta reports:"
 echo -e "full_name\tsample_name\ttech\tkraken2_p\tkraken2\tcat_reads\ttrim_reads\tunicycler\tunicycler_ncontigs\tunicycler_sum\tunicycler_longest\tprokka_gff\tprokka_CDS\tpipeline_date\tprefix\tpath" > collected_database.tab
 
 # Collect
-j=1
+j=0
 N=$(ls output/isolates/*/report/meta_report.txt | wc -l)
+printf "\r  $j    / $N"
 for i in output/isolates/*/report/meta_report.txt; do
-	printf "\r  $j / $N"
+	if [[ $(($j %10)) == 0 ]]; then
+		printf "\r  $j"
+	fi
 	cat $i >> collected_database.tab
 	j=$((j+1))
 done
+printf "\r  $j"
 
 # Finally
-printf " OK\n"
+#printf " OK\n"
+printf "\n"
 echo "  All meta reports have been collected into collected_database.tab"
