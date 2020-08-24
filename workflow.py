@@ -358,8 +358,16 @@ for prefix, dict_ in reads_paths_parsed.items():
         #    exit()
 
         # Skip blacklisted samples. Some samples just don't comply.
-        blacklist = ['HA_101', '16-138518_S10', '16-149463_S7']
-        if sample_name in blacklist:
+        #blacklist = ['HA_101', '16-138518_S10', '16-149463_S7', 'D10_00037', 'D_02357', 'HA_11']
+
+        # New, better blacklist with full_name's instead of sample_name's
+        blacklist = ['200622_HA_11',
+                     '180511_D10_00037',
+                     '180828_D10_00037',
+                     '180914_D_02357',
+                     '200622_HA_38', '200622_HA_94']#, '200622_HA_101']
+        #blacklist = []
+        if prefix + '_' +sample_name in blacklist:
             continue
         
 
@@ -424,27 +432,24 @@ for prefix, dict_ in reads_paths_parsed.items():
                       f"output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz"],
             outputs = [f"output/isolates/{full_name}/kraken2/kraken2_reads_report.txt",
                        f"output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab"],
-            cores = 8,
+            cores = 4,
             memory = '8gb',
             walltime = '8:00:00',
             account = 'clinicalmicrobio') << f"""
 
                 mkdir -p output/isolates/{full_name}/kraken2
                 
-                #kraken2 --db /project/ClinicalMicrobio/faststorage/database/minikraken2_v2_8GB_201904_UPDATE/ --report output/isolates/{full_name}/kraken2/kraken2_reads_report_old.txt --paired output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz > /dev/null
-                kraken2 --db /project/ClinicalMicrobio/faststorage/database/minikraken_8GB_20200312/ --report output/isolates/{full_name}/kraken2/kraken2_reads_report.txt --paired output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz > /dev/null
 
-                cat output/isolates/{full_name}/kraken2/kraken2_reads_report.txt | {kraken_reads_top_command} | sort -gr | head -n 10 > output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab
-
+                kraken2 --threads 4 --db /project/ClinicalMicrobio/faststorage/database/minikraken_8GB_20200312/ --report output/isolates/{full_name}/kraken2/kraken2_reads_report.txt --paired output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz > /dev/null
 
                 
-
+                cat output/isolates/{full_name}/kraken2/kraken2_reads_report.txt | {kraken_reads_top_command} | sort -gr | head -n 10 > output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab
+                
+                # Write to the kraken-database
+                # TODO: Manually update the old samples
                 kraken2=$(head -n 1 output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab | awk '{{$1 = ""; print $0;}}' | sed -e 's/^[[:space:]]*//')
                 kraken2_p=$(head -n 1 output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab | awk '{{print $1}}' | sed -e 's/%//')
-                kraken2_fn=$(tail -n 1 output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab)
-
-                sleep $[ ( $RANDOM % 200 )  + 1 ]s
-                echo -e "$kraken2_fn\t$kraken2_p\t$kraken2" >> kraken2.tab
+                echo -e "{full_name}\t$kraken2_p\t$kraken2" >> kraken2.tab
 
 
 
@@ -455,25 +460,80 @@ for prefix, dict_ in reads_paths_parsed.items():
 
         gwf.target(sanify('_3_unicyc_', full_name),
             inputs = [f"output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz",
-                      f"output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz"],
+                      f"output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz",
+                      f"output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab"], # Not strictly necessary, just makes the database so much more integrated.
             outputs = [f"output/isolates/{full_name}/unicycler/assembly.fasta",
                        f"output/isolates/{full_name}/unicycler/final_assembly/{full_name}.fasta",
                        f"output/isolates/{full_name}/unicycler/assembly-stats.tab"],
-            cores = 4,
+            cores = 16,
             memory = '256g', 
             walltime = '2-00:00:00',
             account = 'clinicalmicrobio') << f"""
 
+                # Create a report before doing anything
+                # If unicycler fails, then there will at least be a report which indicates that the assembly has failed.
+
+                mkdir -p output/isolates/{full_name}/report
+
+                # Collect data for report
+                kraken2=$(head -n 1 output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab | awk '{{$1 = ""; print $0;}}' | sed -e 's/^[[:space:]]*//')
+                kraken2_p=$(head -n 1 output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab | awk '{{print $1}}' | sed -e 's/%//')
+
+                cat_R1="output/isolates/{full_name}/cat_reads/PE_R1.fastq.gz"
+                cat_R2="output/isolates/{full_name}/cat_reads/PE_R2.fastq.gz"
+
+                trim_R1="output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz"
+                trim_R2="output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz"
+
+                unicycler_assembly="" 
+
+                unicycler_sum=""
+                unicycler_ncontigs=""
+                unicycler_longest=""
+
+                prokka_gff=""
+                prokka_CDS=""
+
+                method='{dict_['method']}'
+
+
+                # full_name sample_name tech kraken2_p kraken2 cat_reads trim_reads unicycler unicycler_ncontigs unicycler_sum unicycler_longest prokka_gff prokka_CDS pipeline_date prefix path
+                echo -e "{full_name}\t{sample_name}\t$method\t$kraken2_p\t$kraken2\t[\\"$cat_R1\\", \\"$cat_R2\\"]\t[\\"$trim_R1\\", \\"$trim_R2\\"]\t$unicycler_assembly\t$unicycler_ncontigs\t$unicycler_sum\t$unicycler_longest\t$prokka_gff\t$prokka_CDS\t$(date +%F_%H-%M-%S)\t{prefix}\t{dict_['path']}" > output/isolates/{full_name}/report/meta_report.txt
+
+
+
+
+
+
+                # temp
+                # cp output/isolates/{full_name}/report/meta_report.txt output/isolates/{full_name}/report/check_meta_report.txt
+                # exit 0
+
+
+
+
+
+
                 mkdir -p output/isolates/{full_name}/unicycler
+                mkdir -p other # for errors
 
-                unicycler --min_fasta_length 500 -1 output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz -2 output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz -o output/isolates/{full_name}/unicycler
 
-                # a file with a name might be easier to work with.                
+                unicycler --min_fasta_length 500 -1 output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz -2 output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz -o output/isolates/{full_name}/unicycler || echo -e "{full_name}\t{sample_name}\t{dict_['path']}\t$(date +%F_%H-%M-%S)" >> other/blacklist.tab
+
+                # a file with a name might be easier to work with.     
+                # This is also the file that p2assemblyextractor works with.           
                 mkdir -p output/isolates/{full_name}/unicycler/final_assembly
                 cp output/isolates/{full_name}/unicycler/assembly.fasta output/isolates/{full_name}/unicycler/final_assembly/{full_name}.fasta
 
 
                 assembly-stats -t output/isolates/{full_name}/unicycler/assembly.fasta > output/isolates/{full_name}/unicycler/assembly-stats.tab
+
+
+
+                # It would make some sense to update the meta report here and put in the assembly stats.
+                # But I think it is not worth the debugging effort, so the user will have to wait for the summary job to run (after prokka).
+
+
 
 
                 """
@@ -553,8 +613,6 @@ for prefix, dict_ in reads_paths_parsed.items():
                 echo -e "{full_name}\t{sample_name}\t$method\t$kraken2_p\t$kraken2\t[\\"$cat_R1\\", \\"$cat_R2\\"]\t[\\"$trim_R1\\", \\"$trim_R2\\"]\t$unicycler_assembly\t$unicycler_ncontigs\t$unicycler_sum\t$unicycler_longest\t$prokka_gff\t$prokka_CDS\t$(date +%F_%H-%M-%S)\t{prefix}\t{dict_['path']}" > output/isolates/{full_name}/report/meta_report.txt
 
 
-                # Write to database in next job
-                # Use the blacklist, if a sample stands in the way of doing that.
 
                 """
 
@@ -571,33 +629,9 @@ for prefix, dict_ in reads_paths_parsed.items():
                 walltime = '01:00:00',
                 account = 'clinicalmicrobio') << f"""
 
-                ##write kraken-results which may not necessarily be written to the database because the assembly can easily crash if contamination is present.
-                #for f in output/isolates/*/kraken2/kraken2_reads_todb.tab; do
-                #    kraken2=$(head -n 1 $f | awk '{{$1 = ""; print $0;}}' | sed -e 's/^[[:space:]]*//')
-                #    kraken2_p=$(head -n 1 $f | awk '{{print $1}}' | sed -e 's/%//')
-                #    kraken2_fn=$(tail -n 1 $f)
-                #    echo -e "$kraken2_fn\t$kraken2_p\t$kraken2" >> kraken2.tab
-                #    rm $f
 
 
-
-
-                # more jobs might be running at the same time. (unlikely for normal use, but possible when debugging.)
-                sleep $[ ( $RANDOM % 200 )  + 1 ]s
-
-
-                # Backup old database and reads_paths
-                
-                touch database.tab # if it doesn't exist
-                mkdir -p database/backup/
-                cp database.tab database/backup/database_backup_$(date +%F_%H-%M-%S).tab
-                cp reads_paths.tab database/backup/reads_paths_backup_$(date +%F_%H-%M-%S).tab
-
-                
-                # Collect to database (only happens if all jobs have successfully completed). Add samples to the blacklist if you want the rest to occur in the database.
-                # If you want done samples which come from paths where some others are not complete (or failed), you should make an external bash-script to do that.
-
-                cat {' '.join(input_list)} >> database.tab
+                ./update_db.sh
 
 
 

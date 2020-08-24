@@ -2,25 +2,46 @@
 
 
 # Backup
-touch collected_database.tab # if it doesn't exist
 mkdir -p database/backup/
-cp collected_database.tab database/backup/collected_database_backup_$(date +%F_%H-%M-%S).tab && echo "Backup: collected_database OK"
-cp reads_paths.tab database/backup/reads_paths_backup_$(date +%F_%H-%M-%S).tab && echo "Backup: reads_paths.tab OK"
+echo "Backing up:"
+
+# TODO: Warn the user if a backupable file does not exist.
+
+backup() {
+	var=$(basename $1)
+	touch "$1"
+	if [[ ! -f "$var" ]]; then
+		touch "$1"
+		echo "  Warning: ${1} didn't exist. Empty file created."
+	fi
+	cp "$1" database/backup/${var}_$(date +%F_%H-%M-%S).tab && echo "  $var OK"
+}
+
+#touch collected_database.tab # if it doesn't exist
+#cp collected_database.tab database/backup/collected_database_backup_$(date +%F_%H-%M-%S).tab && echo "  collected_database OK"
+
+backup collected_database.tab
+
+backup reads_paths.tab
+
+backup other/paths_done.tab
 
 
-# Reset
-touch collected_database.tab
-rm collected_database.tab
+echo ""
+echo "Collecting meta reports:"
+
+# Reset content and write header
+echo -e "full_name\tsample_name\ttech\tkraken2_p\tkraken2\tcat_reads\ttrim_reads\tunicycler\tunicycler_ncontigs\tunicycler_sum\tunicycler_longest\tprokka_gff\tprokka_CDS\tpipeline_date\tprefix\tpath" > collected_database.tab
 
 # Collect
 j=1
 N=$(ls output/isolates/*/report/meta_report.txt | wc -l)
 for i in output/isolates/*/report/meta_report.txt; do
-	printf "\r$j / $N"
+	printf "\r  $j / $N"
 	cat $i >> collected_database.tab
 	j=$((j+1))
 done
 
 # Finally
 printf " OK\n"
-echo "All meta reports have been collected into collected_database.tab"
+echo "  All meta reports have been collected into collected_database.tab"
