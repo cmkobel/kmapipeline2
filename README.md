@@ -25,17 +25,17 @@ The development is broken down into the following phases which will be completed
 
 ### Phase 1
  - [x] parse reads
- - [x] merge reads 
+ - [x] concatenate reads 
  - [x] QC on reads (fastqc)
  - [x] species detection (kraken2)
  - [x] assembly (unicycler)
  - [x] annotation (prokka)
- - [ ] simple database
+ - [x] simple database
  
  
 ### Phase 2
- - [ ] interface with [Nullarbor](https://github.com/tseemann/nullarbor) somehow
- - [ ] interface with SSI-bifrost
+ - [ ] interface with [Nullarbor](https://github.com/tseemann/nullarbor)
+ - [ ] interface with [Bifrost](https://github.com/ssi-dk/bifrost)
  - [ ] use a shared conda environment
 
 ### Phase 3
@@ -43,6 +43,4 @@ The development is broken down into the following phases which will be completed
  - [ ] make it searchable
  - [ ] make a nice user-interface (web-gui)
  
-### Phase 4
- - [ ] interface with [Bifrost](https://github.com/ssi-dk/bifrost)
  
