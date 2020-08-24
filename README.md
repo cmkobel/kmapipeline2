@@ -44,3 +44,20 @@ The development is broken down into the following phases which will be completed
  - [ ] make a nice user-interface (web-gui)
  
  
+ ## Usage
+ 
+Using this pipeline is easy. 
+ 
+If you have a directory of PE illumina reads, you simply enter the path in the reads_paths.tab file, which should be present in the root directory with the following header:
+
+`#prefix	singular_sample_name	path	tech	lanes_first	comments...`
+
+Then, check if everything is OK by calling `gwf status`
+
+If everything is as you'd like it, the pipeline can be started with `gwf run`
+
+The output will then be written to output/{prefix}_{sample_name}/
+
+
+ 
+ 
