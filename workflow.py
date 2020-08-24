@@ -137,7 +137,7 @@ print()
 
 
 
-print('Now iterating over the remaining paths:')
+print('Now iterating over the remaining paths, if any:')
 
 
 for prefix, dict_ in reads_paths_parsed.items():
@@ -365,7 +365,7 @@ for prefix, dict_ in reads_paths_parsed.items():
                      '180511_D10_00037',
                      '180828_D10_00037',
                      '180914_D_02357',
-                     '200622_HA_38', '200622_HA_94']#, '200622_HA_101']
+                     '200622_HA_38', '200622_HA_94', '200622_HA_101']
         #blacklist = []
         if prefix + '_' +sample_name in blacklist:
             continue
@@ -620,7 +620,7 @@ for prefix, dict_ in reads_paths_parsed.items():
     # Kill dict_['path']
     # When all isolates from a dict_['path'] has been correctly processed, the dict_['path'] is added to a file (paths_done.tab). This disables the dict_['path'] from being processed in the pipeline.
     if True: # Can be easily disabled for debugging.
-        input_list = [f"output/isolates/{prefix + '_' + sample_name}/report/meta_report.txt" for sample_name in sample_names if sample_name not in blacklist]
+        input_list = [f"output/isolates/{prefix + '_' + sample_name}/report/meta_report.txt" for sample_name in sample_names if prefix + '_' + sample_name not in blacklist]
         gwf.target(sanify('_99_kill__', prefix),
             inputs = input_list,
             outputs = [],
