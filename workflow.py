@@ -406,7 +406,7 @@ for prefix, dict_ in reads_paths_parsed.items():
                       f"output/isolates/{full_name}/trim_reads/PE_R2_val_2_fastqc.zip"],
             cores = 4,
             memory = '4gb',
-            walltime = '04:00:00',
+            walltime = '16:00:00',
             account = 'clinicalmicrobio') << f"""
 
                 trim_galore --paired --cores 4 --gzip --fastqc -o output/isolates/{full_name}/trim_reads/ output/isolates/{full_name}/cat_reads/PE_R1.fastq.gz output/isolates/{full_name}/cat_reads/PE_R2.fastq.gz  
@@ -426,6 +426,7 @@ for prefix, dict_ in reads_paths_parsed.items():
                        f"output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab"],
             cores = 8,
             memory = '8gb',
+            walltime = '8:00:00',
             account = 'clinicalmicrobio') << f"""
 
                 mkdir -p output/isolates/{full_name}/kraken2
@@ -433,8 +434,19 @@ for prefix, dict_ in reads_paths_parsed.items():
                 #kraken2 --db /project/ClinicalMicrobio/faststorage/database/minikraken2_v2_8GB_201904_UPDATE/ --report output/isolates/{full_name}/kraken2/kraken2_reads_report_old.txt --paired output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz > /dev/null
                 kraken2 --db /project/ClinicalMicrobio/faststorage/database/minikraken_8GB_20200312/ --report output/isolates/{full_name}/kraken2/kraken2_reads_report.txt --paired output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz > /dev/null
 
-                #cat output/isolates/{full_name}/kraken2/kraken2_reads_report_old.txt | {kraken_reads_top_command} | sort -gr | head -n 10 > output/isolates/{full_name}/kraken2/kraken2_reads_top10_old.tab
                 cat output/isolates/{full_name}/kraken2/kraken2_reads_report.txt | {kraken_reads_top_command} | sort -gr | head -n 10 > output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab
+
+
+                
+
+                kraken2=$(head -n 1 output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab | awk '{{$1 = ""; print $0;}}' | sed -e 's/^[[:space:]]*//')
+                kraken2_p=$(head -n 1 output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab | awk '{{print $1}}' | sed -e 's/%//')
+                kraken2_fn=$(tail -n 1 output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab)
+
+                sleep $[ ( $RANDOM % 200 )  + 1 ]s
+                echo -e "$kraken2_fn\t$kraken2_p\t$kraken2" >> kraken2.tab
+
+
 
 
                 """
@@ -558,6 +570,17 @@ for prefix, dict_ in reads_paths_parsed.items():
                 memory = '1g',
                 walltime = '01:00:00',
                 account = 'clinicalmicrobio') << f"""
+
+                ##write kraken-results which may not necessarily be written to the database because the assembly can easily crash if contamination is present.
+                #for f in output/isolates/*/kraken2/kraken2_reads_todb.tab; do
+                #    kraken2=$(head -n 1 $f | awk '{{$1 = ""; print $0;}}' | sed -e 's/^[[:space:]]*//')
+                #    kraken2_p=$(head -n 1 $f | awk '{{print $1}}' | sed -e 's/%//')
+                #    kraken2_fn=$(tail -n 1 $f)
+                #    echo -e "$kraken2_fn\t$kraken2_p\t$kraken2" >> kraken2.tab
+                #    rm $f
+
+
+
 
                 # more jobs might be running at the same time. (unlikely for normal use, but possible when debugging.)
                 sleep $[ ( $RANDOM % 200 )  + 1 ]s
