@@ -36,6 +36,7 @@ TODO: Also, make the report system.
 
 
 input_paths_file = 'reads_paths.tab'
+input_paths_done_file = 'other/paths_done.tab'
 
 nl = '\n'
 std_setup = {'cores': 8,
@@ -47,15 +48,26 @@ std_setup = {'cores': 8,
 # This will be implemented using the paths_done.tab file.
 # could be moved to a script? To keep the pipeline lean.
 
-paths_done = []
-with open('other/paths_done.tab') as paths_done_open:
-    first_line = True
-    for line in paths_done_open:
-        if first_line == True:
-            first_line = False
-            continue
-        path = line.split('\t')[0]
-        paths_done.append(path)
+def parse_paths_done(input_paths_done_file):
+    paths_done = []
+    with open(input_paths_done_file) as input_paths_done_file_open:
+        #first_line = True # skip header line
+        for line in input_paths_done_file_open:
+            #if first_line == True:
+            #    first_line = False
+            #    continue
+            if line[0] in ['#', '\n']: # comments and newlines are welcome.
+                continue
+            path = line.split('\t')[0]
+            paths_done.append(path)
+
+    return paths_done
+
+
+paths_done = parse_paths_done(input_paths_done_file)
+
+# TODO: implement reading the blacklist
+#       Do that next time something fails.
 
 
 # Find the paths to parse:
@@ -153,7 +165,7 @@ for prefix, dict_ in reads_paths_parsed.items():
     elif dict_['method'] == "PE1": # Attention, only tested on 200626
         PE_method = 1
     else:
-        Exception('Fatal: method', dict_['method'], 'is not yet implemented')
+        raise Exception(f"Fatal: method {dict_['method']} is not yet implemented.")
 
 
     if dict_['singular_sample_name'] != "":
@@ -364,7 +376,7 @@ for prefix, dict_ in reads_paths_parsed.items():
         blacklist = ['200622_HA_11',
                      '180511_D10_00037',
                      '180828_D10_00037',
-                     '180914_D_02357',
+                     #'180914_D_02357',
                      '200622_HA_38', '200622_HA_94', '200622_HA_101']
         #blacklist = []
         if prefix + '_' +sample_name in blacklist:
