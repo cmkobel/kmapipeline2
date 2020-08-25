@@ -530,7 +530,7 @@ for prefix, dict_ in reads_paths_parsed.items():
                 mkdir -p other # for errors
 
 
-                unicycler --min_fasta_length 500 -1 output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz -2 output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz -o output/isolates/{full_name}/unicycler || echo -e "{full_name}\t{sample_name}\t{dict_['path']}\t$(date +%F_%H-%M-%S)" >> other/blacklist.tab
+                unicycler --threads 16 --min_fasta_length 500 -1 output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz -2 output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz -o output/isolates/{full_name}/unicycler || echo -e "{full_name}\t{sample_name}\t{dict_['path']}\t$(date +%F_%H-%M-%S)" >> other/blacklist.tab
 
                 # a file with a name might be easier to work with.     
                 # This is also the file that p2assemblyextractor works with.           

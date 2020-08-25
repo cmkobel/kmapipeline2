@@ -31,9 +31,11 @@ echo ""
 echo "Collecting meta reports:"
 
 # Reset content and write header
+a=$(cat collected_database.tab | wc -l)
 echo -e "full_name\tsample_name\ttech\tkraken2_p\tkraken2\tcat_reads\ttrim_reads\tunicycler\tunicycler_ncontigs\tunicycler_sum\tunicycler_longest\tprokka_gff\tprokka_CDS\tpipeline_date\tprefix\tpath" > collected_database.tab
 
 # Collect
+
 j=0
 N=$(ls output/isolates/*/report/meta_report.txt | wc -l)
 printf "\r  $j    / $N"
@@ -46,7 +48,10 @@ for i in output/isolates/*/report/meta_report.txt; do
 done
 printf "\r  $j"
 
+b=$(cat collected_database.tab | wc -l)
+
 # Finally
 #printf " OK\n"
 printf "\n"
-echo "  All meta reports have been collected into collected_database.tab"
+#echo "  All meta reports have been collected into collected_database.tab"
+echo "$((b-a)) new lines added to collected_database.tab"
