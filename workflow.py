@@ -483,7 +483,7 @@ for prefix, dict_ in reads_paths_parsed.items():
             inputs = [f"output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz",
                       f"output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz",
                       f"output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab"],
-            outputs = [f"output/isolates/{full_name}/coverage/coverage_unfiltered.tab"],
+            outputs = [f"output/isolates/{full_name}/coverage/coverage_unfiltered_all.tabFORCE"],
             cores = 8,
             memory = '16g', #'16g',
             walltime = '2:00:00', #'4:00:00',
@@ -495,8 +495,12 @@ for prefix, dict_ in reads_paths_parsed.items():
                 conda activate antihum # I ought to change its name to "coverage"
 
 
+
                 # Pick the reference automatically
-                kraken2=$(head -n 1 output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab | awk '{{$1 = ""; print $0;}}' | sed 's/^[ \t]*//;s/[ \t]*$//' | sed -e "s/ /_/g")
+                kraken_line=$(head -n 2 output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab | tail -n 1)
+
+                kraken2=$(echo $kraken_line | awk '{{$1 = ""; print $0;}}' | sed 's/^[ \t]*//;s/[ \t]*$//' | sed -e "s/ /_/g")
+                kraken2_p=$(echo $kraken_line | awk '{{print $1}}' | sed -e 's/%//')
                 echo "The species name is ${{kraken2}}"
 
                 if [[ "$kraken2" == "unclassified" ]]; then
@@ -528,15 +532,12 @@ for prefix, dict_ in reads_paths_parsed.items():
 
 
                 
-                mkdir -p output/isolates/{full_name}/coverage
-                cd output/isolates/{full_name}/coverage
+                mkdir -p output/isolates/{full_name}/coverage/${{reference_basename_stem}}
+                cd output/isolates/{full_name}/coverage/${{reference_basename_stem}}
                 
-                # Clear old reference
-                touch reference.fa
-                rm reference.*
-
+                
                 # Copy newest reference and index
-                cp ../../../../$reference ${{reference_basename_stem}}.fa
+                cp ../../../../../$reference ${{reference_basename_stem}}.fa
                 echo "$reference" >> reference_source.txt
                 echo "indexing..."
                 bwa index -a bwtsw ${{reference_basename_stem}}.fa
@@ -562,7 +563,10 @@ for prefix, dict_ in reads_paths_parsed.items():
                 # Get coverage of the non-filtered mapping.
                 sambamba depth window -w 1000 sorted.bam > coverage_unfiltered.tab
 
-                echo -e "{full_name}\t$kraken2\t$reference_basename_stem\treads\t$(awk '{{ total += $5; count++ }} END {{ print total/count }}' coverage_unfiltered.tab)" >> coverage_report.tab
+                echo -e "{full_name}\t$kraken2\t$kraken2_p\t$reference_basename_stem\treads\t$(awk '{{ total += $5; count++ }} END {{ print total/count }}' coverage_unfiltered.tab)" >> coverage_report_last.tab
+
+                # reformat the coverage files, so it is easier to import in R
+                cat coverage_unfiltered.tab | awk -v name_isolate={full_name} -v name_ref=$reference_basename_stem '{{ print name_isolate, name_ref, $0 }}' >> coverage_unfiltered_all.tab
 
                 echo done
 
