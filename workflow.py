@@ -1,5 +1,4 @@
 #! /usr/bin/env python3
-
 from gwf import *
 import glob
 import os 
@@ -127,15 +126,25 @@ reads_paths_parsed = parse_input(input_paths_file)
 
 
 
-print("These are the paths where sample-names will be extracted from.")
-for key, dict_ in reads_paths_parsed.items():
-    if dict_['path'] in paths_done:
-        status_msg = '  complete:   will be skipped: '
-    else:
-        status_msg = '> incomplete: will be enqueued:'
-    print(f"  {status_msg} \"{key}\" {dict_['singular_sample_name']} @ {dict_['path']} ({dict_['method']})")
-print()
+def overview_presentation():
+    print("These are the paths where sample-names will be extracted from.")
+    for key, dict_ in reads_paths_parsed.items():
 
+        # shorten the path if it is too long to show on screen
+        if len(dict_['path']) > 90:
+            shortened_path = dict_['path'][:11] + '…' + dict_['path'][-69:]
+        else:
+            shortened_path = dict_['path']
+
+
+        if dict_['path'] in paths_done:
+            status_msg = ' complete:   will be skipped: '
+        else:
+            status_msg = '> incomplete: will be enqueued:'
+        print(f"{status_msg} \"{key}\" {dict_['singular_sample_name']} @ {shortened_path} ({dict_['method']})")
+    print()
+
+overview_presentation()
 
 
 
@@ -444,15 +453,15 @@ for prefix, dict_ in reads_paths_parsed.items():
                       f"output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz"],
             outputs = [f"output/isolates/{full_name}/kraken2/kraken2_reads_report.txt",
                        f"output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab"],
-            cores = 4,
-            memory = '8gb',
+            cores = 8,
+            memory = '32gb',
             walltime = '8:00:00',
             account = 'clinicalmicrobio') << f"""
 
                 mkdir -p output/isolates/{full_name}/kraken2
                 
 
-                kraken2 --threads 4 --db /project/ClinicalMicrobio/faststorage/database/minikraken_8GB_20200312/ --report output/isolates/{full_name}/kraken2/kraken2_reads_report.txt --paired output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz > /dev/null
+                kraken2 --threads 8 --db /project/ClinicalMicrobio/faststorage/database/minikraken_8GB_20200312/ --report output/isolates/{full_name}/kraken2/kraken2_reads_report.txt --paired output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz > /dev/null
 
                 
                 cat output/isolates/{full_name}/kraken2/kraken2_reads_report.txt | {kraken_reads_top_command} | sort -gr | head -n 10 > output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab
@@ -470,6 +479,101 @@ for prefix, dict_ in reads_paths_parsed.items():
 
 
 
+        gwf.target(sanify('_2.1_coverg_', full_name),
+            inputs = [f"output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz",
+                      f"output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz",
+                      f"output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab"],
+            outputs = [f"output/isolates/{full_name}/coverage/coverage_unfiltered.tab"],
+            cores = 8,
+            memory = '16g', #'16g',
+            walltime = '2:00:00', #'4:00:00',
+            account = 'clinicalmicrobio') << f"""
+                echo $(pwd)
+                
+                # I failed to get sambamba to work in the p222 environment, so I use a different one.
+                source /home/cmkobel/miniconda3/etc/profile.d/conda.sh 
+                conda activate antihum # I ought to change its name to "coverage"
+
+
+                # Pick the reference automatically
+                kraken2=$(head -n 1 output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab | awk '{{$1 = ""; print $0;}}' | sed 's/^[ \t]*//;s/[ \t]*$//' | sed -e "s/ /_/g")
+                echo "The species name is ${{kraken2}}"
+
+                if [[ "$kraken2" == "unclassified" ]]; then
+                    echo "Because the top hit is unclassified, the coverage will not be measured."
+                    touch output/isolates/{full_name}/coverage/coverage_unfiltered.tab # disable from workflow
+                    exit 1
+                fi
+
+                if [[ $(compgen -G "references/${{kraken2}}/*.fa") ]]; then 
+                    echo reference found
+                    reference=$(compgen -G "references/${{kraken2}}/*.fa" | head -n 1)
+                    echo $reference
+
+                    reference_basename=$(basename $reference)
+                    reference_basename_stem=${{reference_basename%.*}}
+
+                    echo "$reference_basename $reference_basename_stem"
+
+
+                else 
+                    echo reference not found
+                    echo $kraken2 >> other/missing_references.tab
+                    exit 1
+                fi 
+
+
+
+                # Most of the rest is taken from anti_hum 
+
+
+                
+                mkdir -p output/isolates/{full_name}/coverage
+                cd output/isolates/{full_name}/coverage
+                
+                # Clear old reference
+                touch reference.fa
+                rm reference.*
+
+                # Copy newest reference and index
+                cp ../../../../$reference ${{reference_basename_stem}}.fa
+                echo "$reference" >> reference_source.txt
+                echo "indexing..."
+                bwa index -a bwtsw ${{reference_basename_stem}}.fa
+                
+
+
+
+                # Map
+                echo mapping...
+                bwa mem -M -t 8 ${{reference_basename_stem}}.fa ../trim_reads/PE_R1_val_1.fq.gz ../trim_reads/PE_R2_val_2.fq.gz  \
+                | sambamba view -f bam -F "proper_pair" -S -t 8 /dev/stdin > unsorted.bam
+                #| sambamba view -f bam -T ${{reference_basename_stem}}.fa /dev/stdin > unsorted.bam
+                
+                  
+                # Sort
+                echo sorting...
+                sambamba sort -t 8 -m 16GB --out=sorted.bam --tmpdir=/scratch/$GWF_JOBID/ unsorted.bam
+                sambamba index sorted.bam 
+
+                rm unsorted.bam 
+
+
+                # Get coverage of the non-filtered mapping.
+                sambamba depth window -w 1000 sorted.bam > coverage_unfiltered.tab
+
+                echo -e "{full_name}\t$kraken2\t$reference_basename_stem\treads\t$(awk '{{ total += $5; count++ }} END {{ print total/count }}' coverage_unfiltered.tab)" >> coverage_report.tab
+
+                echo done
+
+
+                # is filtering relevant?
+                
+
+                """
+
+
+
         gwf.target(sanify('_3_unicyc_', full_name),
             inputs = [f"output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz",
                       f"output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz",
@@ -479,8 +583,12 @@ for prefix, dict_ in reads_paths_parsed.items():
                        f"output/isolates/{full_name}/unicycler/assembly-stats.tab"],
             cores = 16,
             memory = '256g', 
-            walltime = '2-00:00:00',
+            walltime = '12:00:00',
             account = 'clinicalmicrobio') << f"""
+
+                # Somehow, samtools (dependency of unicycler) has a problem together with some other package in p222. I don't know which. What a mess.
+                source /home/cmkobel/miniconda3/etc/profile.d/conda.sh 
+                conda activate unicycler 
 
                 # Create a report before doing anything
                 # If unicycler fails, then there will at least be a report which indicates that the assembly has failed.
@@ -551,17 +659,94 @@ for prefix, dict_ in reads_paths_parsed.items():
                 """
                 
 
+		# Alternative to unicycler: skesa
+        gwf.target(sanify('_3_skesa__', full_name),
+            inputs = [f"output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz",
+                      f"output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz",
+                      f"output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab"], # Not strictly necessary, just makes the database so much more integrated.
+            outputs = [f"output/isolates/{full_name}/skesa/{full_name}.fa",
+                       f"output/isolates/{full_name}/skesa/assembly-stats.tab"],
+            cores = 16,
+            memory = '128g', 
+            walltime = '12:00:00',
+            account = 'clinicalmicrobio') << f"""
+
+           		mkdir -p output/isolates/{full_name}/skesa
+           		cd output/isolates/{full_name}/skesa
+
+           		skesa --reads ../trim_reads/PE_R1_val_1.fq.gz,../trim_reads/PE_R2_val_2.fq.gz --cores 16 --memory 128 --min_contig 500 > {full_name}.fa
+
+           		assembly-stats -t {full_name}.fa > assembly-stats.tab
+
+           		"""
+
+
             
         gwf.target(sanify('_4_prokka_', full_name),
             inputs  = [f"output/isolates/{full_name}/unicycler/assembly.fasta"],
             outputs  = [f"output/isolates/{full_name}/prokka/{full_name}.gff"],
-            cores = 8,
-            memory = '4g',
+            cores = 16,
+            memory = '8g',
             walltime = '04:00:00',
             account = 'clinicalmicrobio') << f"""
+                
+
+
                 mkdir -p output/isolates/{full_name}/prokka
 
-                prokka --cpu 8 --force --prefix {full_name} --outdir output/isolates/{full_name}/prokka output/isolates/{full_name}/unicycler/final_assembly/{full_name}.fasta
+                # prokka --cpu 8 --force --prefix {full_name} --outdir output/isolates/{full_name}/prokka output/isolates/{full_name}/unicycler/final_assembly/{full_name}.fasta
+
+
+
+
+
+
+
+
+
+                # Copied from assemblycomparator
+
+                
+
+
+                cd output/isolates/{full_name}/prokka #
+            
+                # In reality, it is never possible to create and identical assembly, so the if-statement doesn't really need to check for an existing hash-dir.
+                # But in order to make the code more portable, i wish to keep it as it is..
+
+                # hash tables
+                # Generate hash key from assembly
+                hash=$(cat ../unicycler/final_assembly/{full_name}.fasta | sha256sum | awk '{{print $1}}')
+                # Set up directories
+                hash_base="/faststorage/project/ClinicalMicrobio/database/prokka_hash/keys"
+                hash_key_dir="${{hash_base}}/${{hash}}"
+                # Check if the key exists
+                if [[ -d "${{hash_key_dir}}" ]]; then
+                    echo "Hash key exists"
+                    echo $hash
+                    #mkdir -p prokka
+                    
+                    # log usage
+                    echo -e "copying from ${{hash}}" > prokka_hash.txt
+                    echo -e "copy\t$(pwd)/\t${{hash}}\t{full_name}\t$(date +%F_%H-%M-%S)" > "${{hash_key_dir}}"/usage_log.tab
+                    
+                    cp "${{hash_key_dir}}/prokka."* .
+                    # Touch it all to update the modified dates
+                    touch prokka.*
+                    
+                    echo -e "${{hash}}" > hash.txt
+                else
+                    
+                    prokka --cpu 16 --force --outdir . --prefix prokka ../unicycler/final_assembly/{full_name}.fasta 
+                    if [[ -d "${{hash_base}}" ]]; then
+                        mkdir -p "${{hash_key_dir}}"
+                        cp prokka.* "${{hash_key_dir}}"
+                        echo -e "{full_name}\t${{hash}}\tsha256sum\tpipeline2\t$(date +%F_%H-%M-%S)" >> ${{hash_key_dir}}/index.tab
+                        touch ${{hash_key_dir}}/{full_name}.sample_name
+                        cat ${{hash_key_dir}}/index.tab >> ${{hash_base}}/index.tab
+                    fi
+                fi
+                cp prokka.gff {full_name}.gff
                 
                 
 
@@ -617,7 +802,7 @@ for prefix, dict_ in reads_paths_parsed.items():
 
 
                 prokka_gff="output/isolates/{full_name}/prokka/{full_name}.gff"
-                prokka_CDS=$(cat output/isolates/{full_name}/prokka/{full_name}.txt | awk '$1 == "CDS:" {{print $0}}' | awk '{{print $2}}')
+                prokka_CDS=$(cat output/isolates/{full_name}/prokka/prokka.txt | awk '$1 == "CDS:" {{print $0}}' | awk '{{print $2}}')
 
                 method='{dict_['method']}'
 

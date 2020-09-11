@@ -40,7 +40,7 @@ j=0
 N=$(ls output/isolates/*/report/meta_report.txt | wc -l)
 printf "\r  $j    / $N"
 for i in output/isolates/*/report/meta_report.txt; do
-	if [[ $(($j %10)) == 0 ]]; then
+	if [[ $(($j %9)) == 0 ]]; then
 		printf "\r  $j"
 	fi
 	cat $i >> collected_database.tab
