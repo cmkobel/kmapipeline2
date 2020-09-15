@@ -483,7 +483,7 @@ for prefix, dict_ in reads_paths_parsed.items():
             inputs = [f"output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz",
                       f"output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz",
                       f"output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab"],
-            outputs = [f"output/isolates/{full_name}/coverage/coverage_unfiltered_all.tabFORCE"],
+            outputs = [f"output/isolates/{full_name}/coverage/coverage_all.tab"],
             cores = 8,
             memory = '16g', #'16g',
             walltime = '2:00:00', #'4:00:00',
@@ -497,7 +497,7 @@ for prefix, dict_ in reads_paths_parsed.items():
 
 
                 # Pick the reference automatically
-                kraken_line=$(head -n 2 output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab | tail -n 1)
+                kraken_line=$(head -n 1 output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab | tail -n 1)
 
                 kraken2=$(echo $kraken_line | awk '{{$1 = ""; print $0;}}' | sed 's/^[ \t]*//;s/[ \t]*$//' | sed -e "s/ /_/g")
                 kraken2_p=$(echo $kraken_line | awk '{{print $1}}' | sed -e 's/%//')
@@ -506,6 +506,7 @@ for prefix, dict_ in reads_paths_parsed.items():
                 if [[ "$kraken2" == "unclassified" ]]; then
                     echo "Because the top hit is unclassified, the coverage will not be measured."
                     touch output/isolates/{full_name}/coverage/coverage_unfiltered.tab # disable from workflow
+                    echo "failed due to unclassified species call" >> log.txt
                     exit 1
                 fi
 
@@ -523,6 +524,7 @@ for prefix, dict_ in reads_paths_parsed.items():
                 else 
                     echo reference not found
                     echo $kraken2 >> other/missing_references.tab
+                    echo "failed due to missing reference" >> log.txt
                     exit 1
                 fi 
 
@@ -547,7 +549,7 @@ for prefix, dict_ in reads_paths_parsed.items():
 
                 # Map
                 echo mapping...
-                bwa mem -M -t 8 ${{reference_basename_stem}}.fa ../trim_reads/PE_R1_val_1.fq.gz ../trim_reads/PE_R2_val_2.fq.gz  \
+                bwa mem -M -t 8 ${{reference_basename_stem}}.fa ../../trim_reads/PE_R1_val_1.fq.gz ../../trim_reads/PE_R2_val_2.fq.gz  \
                 | sambamba view -f bam -F "proper_pair" -S -t 8 /dev/stdin > unsorted.bam
                 #| sambamba view -f bam -T ${{reference_basename_stem}}.fa /dev/stdin > unsorted.bam
                 
@@ -557,16 +559,48 @@ for prefix, dict_ in reads_paths_parsed.items():
                 sambamba sort -t 8 -m 16GB --out=sorted.bam --tmpdir=/scratch/$GWF_JOBID/ unsorted.bam
                 sambamba index sorted.bam 
 
+                sambamba flagstat -t 8 sorted.bam > sorted.bam.flagstat
+
+
                 rm unsorted.bam 
+
+
+
 
 
                 # Get coverage of the non-filtered mapping.
                 sambamba depth window -w 1000 sorted.bam > coverage_unfiltered.tab
 
-                echo -e "{full_name}\t$kraken2\t$kraken2_p\t$reference_basename_stem\treads\t$(awk '{{ total += $5; count++ }} END {{ print total/count }}' coverage_unfiltered.tab)" >> coverage_report_last.tab
+                cat coverage_unfiltered.tab | awk -F$'\\t' -v name_isolate={full_name} -v name_ref=$reference_basename_stem -v name_species=$kraken2 '{{ print name_isolate, name_ref, name_species, "unfiltered", $0 }}' >> coverage_all.tab
+
+
+  
+
+
+                # =-=-=-=-= Filtering =-=-=-=-=
+                echo filtering...
+                # Mark duplicates
+                
+                sambamba markdup -t 8 sorted.bam --tmpdir=/scratch/$GWF_JOBID/ sorted_markdup.bam
+                
+                sambamba flagstat -t 8 sorted_markdup.bam > sorted_markdup.bam.flagstat
+
+
+
+                sambamba view -F "not (duplicate or secondary_alignment or unmapped) and mapping_quality >= 30" -f bam sorted_markdup.bam > sorted_markdup_filtered.bam
+                # and cigar =~ /50M/ and [NM] < 5
+
+                # Is it also necessary to sort ?
+                sambamba index sorted_markdup_filtered.bam 
+
+                sambamba depth window -w 1000 sorted_markdup_filtered.bam > coverage_filtered.tab
+
+
+                echo -e "{full_name}\t$kraken2\t$kraken2_p\t$reference_basename_stem\treads\t$(awk '{{ total += $5; count++ }} END {{ print total/count }}' coverage_filtered.tab)" >> ../coverage_report.tab
 
                 # reformat the coverage files, so it is easier to import in R
-                cat coverage_unfiltered.tab | awk -v name_isolate={full_name} -v name_ref=$reference_basename_stem '{{ print name_isolate, name_ref, $0 }}' >> coverage_unfiltered_all.tab
+                cat coverage_filtered.tab | awk -F$'\\t' -v name_isolate={full_name} -v name_ref=$reference_basename_stem -v name_species=$kraken2 '{{ print name_isolate, name_ref, name_species, "filtered", $0 }}' >> coverage_all.tab
+
 
                 echo done
 
@@ -698,9 +732,7 @@ for prefix, dict_ in reads_paths_parsed.items():
 
                 mkdir -p output/isolates/{full_name}/prokka
 
-                # prokka --cpu 8 --force --prefix {full_name} --outdir output/isolates/{full_name}/prokka output/isolates/{full_name}/unicycler/final_assembly/{full_name}.fasta
-
-
+     
 
 
 
