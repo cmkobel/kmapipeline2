@@ -442,7 +442,7 @@ for prefix, dict_ in reads_paths_parsed.items():
 
 
 
-        gwf.target(sanify('_1_trim___', full_name),
+        gwf.target(sanify('_1_trimga_', full_name),
             inputs = [f"output/isolates/{full_name}/cat_reads/PE_R1.fastq.gz",
                       f"output/isolates/{full_name}/cat_reads/PE_R2.fastq.gz"],
             outputs = [f"output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz",
@@ -472,7 +472,39 @@ for prefix, dict_ in reads_paths_parsed.items():
                 # TODO: Find a way to save the fastq results? They should be calculated within trim_galore
 
                 """
+       
+        gwf.target(sanify('_1_trimmo_', full_name),
+            inputs = [f"output/isolates/{full_name}/cat_reads/PE_R1.fastq.gz",
+                      f"output/isolates/{full_name}/cat_reads/PE_R2.fastq.gz"],
+            outputs = [f"output/isolates/{full_name}/trimmomatic/forward_paired.fq.gz",
+                       f"output/isolates/{full_name}/trimmomatic/forward_unpaired.fq.gz",
+                       f"output/isolates/{full_name}/trimmomatic/reverse_paired.fq.gz",
+                       f"output/isolates/{full_name}/trimmomatic/reverse_unpaired.fq.gz"],
+            cores = 4,
+            memory = '4gb',
+            walltime = '16:00:00',
+            account = 'clinicalmicrobio') << f"""
+
+
+                mkdir -p output/isolates/{full_name}/trimmomatic/
                 
+                #trimmomatic PE -trimlog output/isolates/{full_name}/trimmomatic/trimlog.txt -summary output/isolates/{full_name}/trimmomatic/summary.txt -validatePairs output/isolates/{full_name}/cat_reads/PE_R1.fastq.gz output/isolates/{full_name}/cat_reads/PE_R2.fastq.gz output/isolates/{full_name}/trimmomatic/forward_paired.fq.gz output/isolates/{full_name}/trimmomatic/forward_unpaired.fq.gz output/isolates/{full_name}/trimmomatic/reverse_paired.fq.gz output/isolates/{full_name}/trimmomatic/reverse_unpaired.fq.gz ILLUMINACLIP:TruSeq3-PE.fa:2:30:10:2:keepBothReads LEADING:3 TRAILING:3 MINLEN:36
+
+
+                mkdir -p output/isolates/{full_name}/report 
+
+                cd output/isolates/{full_name}/trimmomatic
+                zcat forward_paired.fq.gz > {full_name}_R1.fq
+                zcat reverse_paired.fq.gz > {full_name}_R2.fq
+
+
+                assembly-stats -t {full_name}_R*.fq > ../report/fastq_stats_trimmomatic.tab
+
+                rm {full_name}_R1.fq
+                rm {full_name}_R2.fq
+
+                """
+
 
 
         kraken_reads_top_command = """awk -F '\\t' '$4 ~ "(^S$)|(U)" {gsub(/^[ \\t]+/, "", $6); printf("%6.2f%%\\t%s\\n", $1, $6)}'"""
@@ -565,6 +597,13 @@ for prefix, dict_ in reads_paths_parsed.items():
                 mkdir -p output/isolates/{full_name}/coverage/${{reference_basename_stem}}
                 cd output/isolates/{full_name}/coverage/${{reference_basename_stem}}
                 
+
+                # clear output (robust)
+                touch clear.bam clear.bam.bai clear.bam.flagstat
+                rm *.bam *.bam.bai *.bam.flagstat
+
+                touch coverage_filtered.tab coverage_unfiltered.tab
+                rm *.tab
                 
                 # Copy newest reference and index
                 cp ../../../../../$reference ${{reference_basename_stem}}.fa
@@ -597,38 +636,45 @@ for prefix, dict_ in reads_paths_parsed.items():
 
 
                 # Get coverage of the non-filtered mapping.
+                echo measuring depth (unfiltered)...
                 sambamba depth window -w 1000 sorted.bam > coverage_unfiltered.tab
 
-                cat coverage_unfiltered.tab | awk -F$'\\t' -v name_isolate={full_name} -v name_ref=$reference_basename_stem -v name_species=$kraken2 '{{ print name_isolate, name_ref, name_species, "unfiltered", $0 }}' >> coverage_all.tab
+                cat coverage_unfiltered.tab | awk -F$'\\t' -v name_isolate={full_name} -v name_ref=$reference_basename_stem -v name_species=$kraken2 '{{ print name_isolate, name_ref, name_species, "unfiltered", $0 }}' > coverage_all.tab
 
 
   
 
 
                 # =-=-=-=-= Filtering =-=-=-=-=
-                echo filtering...
+                echo marking duplicates...
                 # Mark duplicates
                 
+
                 sambamba markdup -t 8 sorted.bam --tmpdir=/scratch/$GWF_JOBID/ sorted_markdup.bam
                 
                 sambamba flagstat -t 8 sorted_markdup.bam > sorted_markdup.bam.flagstat
 
 
-
+                echo filtering...
                 sambamba view -F "not (duplicate or secondary_alignment or unmapped) and mapping_quality >= 30" -f bam sorted_markdup.bam > sorted_markdup_filtered.bam
                 # and cigar =~ /50M/ and [NM] < 5
 
                 # Is it also necessary to sort ?
                 sambamba index sorted_markdup_filtered.bam 
 
+                echo measuring depth...
                 sambamba depth window -w 1000 sorted_markdup_filtered.bam > coverage_filtered.tab
 
 
                 echo -e "{full_name}\t$kraken2\t$kraken2_p\t$reference_basename_stem\treads\t$(awk '{{ total += $5; count++ }} END {{ print total/count }}' coverage_filtered.tab)" >> ../coverage_report.tab
 
                 # reformat the coverage files, so it is easier to import in R
-                cat coverage_filtered.tab | awk -F$'\\t' -v name_isolate={full_name} -v name_ref=$reference_basename_stem -v name_species=$kraken2 '{{ print name_isolate, name_ref, name_species, "filtered", $0 }}' >> coverage_all.tab
+                cat coverage_filtered.tab | awk -F$'\\t' -v name_isolate={full_name} -v name_ref=$reference_basename_stem -v name_species=$kraken2 '{{ print name_isolate, name_ref, name_species, "filtered", $0 }}'  >> coverage_all.tab
 
+                echo measuring insert size...
+                picard CollectInsertSizeMetrics -I sorted_markdup_filtered.bam -O collectinsertsizemetrics_report.txt -H histogram.png
+
+                cat collectinsertsizemetrics_report.txt | grep -A 10000 "insert_size" | awk -F$'\\t' -v name_isolate={full_name} -v name_ref=$reference_basename_stem -v name_species=$kraken2  '{{ print name_isolate, name_ref, name_species, $0 }}' > insertsizemetrics.tab 
 
                 echo done
 
@@ -637,6 +683,8 @@ for prefix, dict_ in reads_paths_parsed.items():
                 
 
                 """
+
+
 
 
 
