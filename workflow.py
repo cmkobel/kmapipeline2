@@ -422,6 +422,22 @@ for prefix, dict_ in reads_paths_parsed.items():
                 echo "{nl}{nl}Completed $(date)" >> $cat_log
 
 
+
+
+                # stats
+                
+                mkdir -p output/isolates/{full_name}/report
+                cd output/isolates/{full_name}/cat_reads/
+
+                zcat PE_R1.fastq.gz > {full_name}_R1.fq
+                zcat PE_R2.fastq.gz > {full_name}_R2.fq
+
+
+                assembly-stats -t {full_name}_R*.fq > ../report/untrimmed_fastq_stats.tab
+
+                rm {full_name}_R1.fq
+                rm {full_name}_R2.fq
+
                 """
 
 
@@ -439,6 +455,18 @@ for prefix, dict_ in reads_paths_parsed.items():
             account = 'clinicalmicrobio') << f"""
 
                 trim_galore --paired --cores 4 --gzip --fastqc -o output/isolates/{full_name}/trim_reads/ output/isolates/{full_name}/cat_reads/PE_R1.fastq.gz output/isolates/{full_name}/cat_reads/PE_R2.fastq.gz  
+
+                mkdir -p output/isolates/{full_name}/report 
+
+                cd output/isolates/{full_name}/trim_reads/
+                zcat PE_R1_val_1.fq.gz > {full_name}_R1.fq
+                zcat PE_R2_val_2.fq.gz > {full_name}_R2.fq
+
+
+                assembly-stats -t {full_name}_R*.fq > ../report/fastq_stats.tab
+
+                rm {full_name}_R1.fq
+                rm {full_name}_R2.fq
 
                 # TODO: check if trim galore supports multiple cores now? 
                 # TODO: Find a way to save the fastq results? They should be calculated within trim_galore
