@@ -126,7 +126,9 @@ reads_paths_parsed = parse_input(input_paths_file)
 
 
 
-def overview_presentation():
+def overview_presentation(reads_paths_parsed): 
+    """ This function writes a pretty overview of the input paths.
+    """
     print("These are the paths where sample-names will be extracted from.")
     for key, dict_ in reads_paths_parsed.items():
 
@@ -144,7 +146,7 @@ def overview_presentation():
         print(f"{status_msg} \"{key}\" {dict_['singular_sample_name']} @ {shortened_path} ({dict_['method']})")
     print()
 
-overview_presentation()
+overview_presentation(reads_paths_parsed)
 
 
 
@@ -182,6 +184,8 @@ for prefix, dict_ in reads_paths_parsed.items():
     else:
         singular_sample_name_bool = False
 
+
+    # Present the overall metadata for the path:
     print()
     print()
     print()
@@ -388,7 +392,7 @@ for prefix, dict_ in reads_paths_parsed.items():
                      #'180914_D_02357',
                      '200622_HA_38', '200622_HA_94', '200622_HA_101']
         #blacklist = []
-        if prefix + '_' +sample_name in blacklist:
+        if prefix + '_' + sample_name in blacklist:
             continue
         
 
@@ -410,7 +414,6 @@ for prefix, dict_ in reads_paths_parsed.items():
             
                 cat_log="output/isolates/{full_name}/cat_reads/cat.log"
 
-                
                 
                 echo -e "forward:{nl}{nl.join(reads_forward_full)}" > $cat_log
                 cat {' '.join(reads_forward_full)} > output/isolates/{full_name}/cat_reads/PE_R1.fastq.gz
@@ -435,6 +438,7 @@ for prefix, dict_ in reads_paths_parsed.items():
 
                 assembly-stats -t {full_name}_R*.fq > ../report/untrimmed_fastq_stats.tab
 
+                # clean up
                 rm {full_name}_R1.fq
                 rm {full_name}_R2.fq
 
@@ -473,42 +477,43 @@ for prefix, dict_ in reads_paths_parsed.items():
 
                 """
        
-        gwf.target(sanify('_1_trimmo_', full_name),
-            inputs = [f"output/isolates/{full_name}/cat_reads/PE_R1.fastq.gz",
-                      f"output/isolates/{full_name}/cat_reads/PE_R2.fastq.gz"],
-            outputs = [f"output/isolates/{full_name}/trimmomatic/forward_paired.fq.gz",
-                       f"output/isolates/{full_name}/trimmomatic/forward_unpaired.fq.gz",
-                       f"output/isolates/{full_name}/trimmomatic/reverse_paired.fq.gz",
-                       f"output/isolates/{full_name}/trimmomatic/reverse_unpaired.fq.gz"],
-            cores = 4,
-            memory = '4gb',
-            walltime = '16:00:00',
-            account = 'clinicalmicrobio') << f"""
-
-
-                mkdir -p output/isolates/{full_name}/trimmomatic/
-                
-                #trimmomatic PE -trimlog output/isolates/{full_name}/trimmomatic/trimlog.txt -summary output/isolates/{full_name}/trimmomatic/summary.txt -validatePairs output/isolates/{full_name}/cat_reads/PE_R1.fastq.gz output/isolates/{full_name}/cat_reads/PE_R2.fastq.gz output/isolates/{full_name}/trimmomatic/forward_paired.fq.gz output/isolates/{full_name}/trimmomatic/forward_unpaired.fq.gz output/isolates/{full_name}/trimmomatic/reverse_paired.fq.gz output/isolates/{full_name}/trimmomatic/reverse_unpaired.fq.gz ILLUMINACLIP:TruSeq3-PE.fa:2:30:10:2:keepBothReads LEADING:3 TRAILING:3 MINLEN:36
-
-
-                mkdir -p output/isolates/{full_name}/report 
-
-                cd output/isolates/{full_name}/trimmomatic
-                zcat forward_paired.fq.gz > {full_name}_R1.fq
-                zcat reverse_paired.fq.gz > {full_name}_R2.fq
-
-
-                assembly-stats -t {full_name}_R*.fq > ../report/fastq_stats_trimmomatic.tab
-
-                rm {full_name}_R1.fq
-                rm {full_name}_R2.fq
-
-                """
+# I used this target to debug trim_galore
+#        gwf.target(sanify('_1_trimmo_', full_name),
+#            inputs = [f"output/isolates/{full_name}/cat_reads/PE_R1.fastq.gz",
+#                      f"output/isolates/{full_name}/cat_reads/PE_R2.fastq.gz"],
+#            outputs = [f"output/isolates/{full_name}/trimmomatic/forward_paired.fq.gz",
+#                       f"output/isolates/{full_name}/trimmomatic/forward_unpaired.fq.gz",
+#                       f"output/isolates/{full_name}/trimmomatic/reverse_paired.fq.gz",
+#                       f"output/isolates/{full_name}/trimmomatic/reverse_unpaired.fq.gz"],
+#            cores = 4,
+#            memory = '4gb',
+#            walltime = '16:00:00',
+#            account = 'clinicalmicrobio') << f"""
+#
+#
+#                mkdir -p output/isolates/{full_name}/trimmomatic/
+#                
+#                #trimmomatic PE -trimlog output/isolates/{full_name}/trimmomatic/trimlog.txt -summary output/isolates/{full_name}/trimmomatic/summary.txt -validatePairs output/isolates/{full_name}/cat_reads/PE_R1.fastq.gz output/isolates/{full_name}/cat_reads/PE_R2.fastq.gz output/isolates/{full_name}/trimmomatic/forward_paired.fq.gz output/isolates/{full_name}/trimmomatic/forward_unpaired.fq.gz output/isolates/{full_name}/trimmomatic/reverse_paired.fq.gz output/isolates/{full_name}/trimmomatic/reverse_unpaired.fq.gz ILLUMINACLIP:TruSeq3-PE.fa:2:30:10:2:keepBothReads LEADING:3 TRAILING:3 MINLEN:36
+#
+#
+#                mkdir -p output/isolates/{full_name}/report 
+#
+#                cd output/isolates/{full_name}/trimmomatic
+#                zcat forward_paired.fq.gz > {full_name}_R1.fq
+#                zcat reverse_paired.fq.gz > {full_name}_R2.fq
+#
+#
+#                assembly-stats -t {full_name}_R*.fq > ../report/fastq_stats_trimmomatic.tab
+#
+#                rm {full_name}_R1.fq
+#                rm {full_name}_R2.fq
+#
+#                """
 
 
 
         kraken_reads_top_command = """awk -F '\\t' '$4 ~ "(^S$)|(U)" {gsub(/^[ \\t]+/, "", $6); printf("%6.2f%%\\t%s\\n", $1, $6)}'"""
-        gwf.target(sanify('_2_kraken_', full_name),
+        gwf.target(sanify('_2.0krake_', full_name),
             inputs = [f"output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz",
                       f"output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz"],
             outputs = [f"output/isolates/{full_name}/kraken2/kraken2_reads_report.txt",
@@ -539,7 +544,7 @@ for prefix, dict_ in reads_paths_parsed.items():
 
 
 
-        gwf.target(sanify('_2.1_coverg_', full_name),
+        gwf.target(sanify('_2.1cover_', full_name),
             inputs = [f"output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz",
                       f"output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz",
                       f"output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab"],
@@ -616,8 +621,8 @@ for prefix, dict_ in reads_paths_parsed.items():
 
                 # Map
                 echo mapping...
-                bwa mem -M -t 8 ${{reference_basename_stem}}.fa ../../trim_reads/PE_R1_val_1.fq.gz ../../trim_reads/PE_R2_val_2.fq.gz  \
-                | sambamba view -f bam -F "proper_pair" -S -t 8 /dev/stdin > unsorted.bam
+                bwa mem -M -t 8 ${{reference_basename_stem}}.fa ../../trim_reads/PE_R1_val_1.fq.gz ../../trim_reads/PE_R2_val_2.fq.gz 2> bwa_mem_stderr.txt  \
+                | sambamba view -f bam -F "proper_pair" -S -t 8 /dev/stdin 2> sambamba_view_stderr.txt > unsorted.bam
                 #| sambamba view -f bam -T ${{reference_basename_stem}}.fa /dev/stdin > unsorted.bam
                 
                   
@@ -636,7 +641,7 @@ for prefix, dict_ in reads_paths_parsed.items():
 
 
                 # Get coverage of the non-filtered mapping.
-                echo measuring depth (unfiltered)...
+                echo measuring depth unfiltered...
                 sambamba depth window -w 1000 sorted.bam > coverage_unfiltered.tab
 
                 cat coverage_unfiltered.tab | awk -F$'\\t' -v name_isolate={full_name} -v name_ref=$reference_basename_stem -v name_species=$kraken2 '{{ print name_isolate, name_ref, name_species, "unfiltered", $0 }}' > coverage_all.tab
@@ -672,10 +677,13 @@ for prefix, dict_ in reads_paths_parsed.items():
                 cat coverage_filtered.tab | awk -F$'\\t' -v name_isolate={full_name} -v name_ref=$reference_basename_stem -v name_species=$kraken2 '{{ print name_isolate, name_ref, name_species, "filtered", $0 }}'  >> coverage_all.tab
 
                 echo measuring insert size...
-                picard CollectInsertSizeMetrics -I sorted_markdup_filtered.bam -O collectinsertsizemetrics_report.txt -H histogram.png
+                java -jar ~/software/picard/picard.jar CollectInsertSizeMetrics -I sorted_markdup_filtered.bam -O collectinsertsizemetrics_report.txt -H histogram.png || ( echo "error making histogram!"; exit 0 )
 
                 cat collectinsertsizemetrics_report.txt | grep -A 10000 "insert_size" | awk -F$'\\t' -v name_isolate={full_name} -v name_ref=$reference_basename_stem -v name_species=$kraken2  '{{ print name_isolate, name_ref, name_species, $0 }}' > insertsizemetrics.tab 
 
+
+                cat collectinsertsizemetrics_report.txt | grep -A 1 "MEDIAN_INSERT_SIZE" | awk -v name={full_name} '{{ print name, $0 }}' >> ins.size_summary_export.tab
+                
                 echo done
 
 
@@ -772,6 +780,20 @@ for prefix, dict_ in reads_paths_parsed.items():
 
                 """
                 
+        gwf.target(sanify('_3.1_GCn__', full_name),
+            inputs = [f"output/isolates/{full_name}/unicycler/final_assembly/{full_name}.fasta"],
+            outputs = f"output/isolates/{full_name}/unicycler/GC.tab",
+            cores = 1,
+            memory = '1g', 
+            walltime = '1:00:00',
+            account = 'clinicalmicrobio') << f"""
+                
+
+                cat output/isolates/{full_name}/unicycler/final_assembly/{full_name}.fasta | scripts/gc_fasta.py {full_name} > output/isolates/{full_name}/unicycler/GC.tab 
+
+
+
+                """        
 
 		# Alternative to unicycler: skesa
         gwf.target(sanify('_3_skesa__', full_name),
