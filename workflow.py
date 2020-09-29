@@ -142,7 +142,7 @@ def overview_presentation(reads_paths_parsed):
         if dict_['path'] in paths_done:
             status_msg = ' complete:   will be skipped: '
         else:
-            status_msg = '> incomplete: will be enqueued:'
+            status_msg = '>incomplete: will be enqueued:'
         print(f"{status_msg} \"{key}\" {dict_['singular_sample_name']} @ {shortened_path} ({dict_['method']})")
     print()
 
@@ -481,8 +481,8 @@ for prefix, dict_ in reads_paths_parsed.items():
             inputs = [f"output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz",
                       f"output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz"],
             outputs = [f"output/isolates/{full_name}/report/{full_name}_mash_screen.tab"],
-            cores = 16,
-            memory = '32gb',
+            cores = 4,
+            memory = '16gb',
             walltime = '01:00:00',
             account = 'clinicalmicrobio') << f"""
 
@@ -495,9 +495,9 @@ for prefix, dict_ in reads_paths_parsed.items():
                 cat PE_R2_val_2.fq.gz >> PE_both.fq.gz
 
                 echo "mash screening ..."
-                # mash screen -w -p 16 ../../../../../database/mashdb/refseq.genomes.k21s1000.msh PE_both.fq.gz | sort -gr > ../report/{full_name}_mash_screen_genomes.tab
-                # mash screen -w -p 16 ../../../../../database/mashdb/refseq.plasmid.k21s1000.msh PE_both.fq.gz | sort -gr > ../report/{full_name}_mash_screen_plasmids.tab
-                mash screen -w -p 16 ../../../../../database/mashdb/refseq.genomes+plasmid.k21s1000.msh PE_both.fq.gz | sort -gr > ../report/{full_name}_mash_screen.tab
+                # mash screen -w -p 4 ../../../../../database/mashdb/refseq.genomes.k21s1000.msh PE_both.fq.gz | sort -gr > ../report/{full_name}_mash_screen_genomes.tab
+                # mash screen -w -p 4 ../../../../../database/mashdb/refseq.plasmid.k21s1000.msh PE_both.fq.gz | sort -gr > ../report/{full_name}_mash_screen_plasmids.tab
+                mash screen -w -p 4 ../../../../../database/mashdb/refseq.genomes+plasmid.k21s1000.msh PE_both.fq.gz | sort -gr > ../report/{full_name}_mash_screen.tab
 
 
 
