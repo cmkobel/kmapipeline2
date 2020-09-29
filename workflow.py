@@ -476,6 +476,38 @@ for prefix, dict_ in reads_paths_parsed.items():
                 # TODO: Find a way to save the fastq results? They should be calculated within trim_galore
 
                 """
+
+        gwf.target(sanify('_1_mshscr_', full_name),
+            inputs = [f"output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz",
+                      f"output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz"],
+            outputs = [f"output/isolates/{full_name}/report/{full_name}_mash_screen.tab"],
+            cores = 16,
+            memory = '32gb',
+            walltime = '01:00:00',
+            account = 'clinicalmicrobio') << f"""
+
+                cd output/isolates/{full_name}/trim_reads/
+                mkdir -p ../report
+
+                echo "catting reads F ..."
+                cat PE_R1_val_1.fq.gz > PE_both.fq.gz
+                echo "catting reads R ..."
+                cat PE_R2_val_2.fq.gz >> PE_both.fq.gz
+
+                echo "mash screening ..."
+                # mash screen -w -p 16 ../../../../../database/mashdb/refseq.genomes.k21s1000.msh PE_both.fq.gz | sort -gr > ../report/{full_name}_mash_screen_genomes.tab
+                # mash screen -w -p 16 ../../../../../database/mashdb/refseq.plasmid.k21s1000.msh PE_both.fq.gz | sort -gr > ../report/{full_name}_mash_screen_plasmids.tab
+                mash screen -w -p 16 ../../../../../database/mashdb/refseq.genomes+plasmid.k21s1000.msh PE_both.fq.gz | sort -gr > ../report/{full_name}_mash_screen.tab
+
+
+
+                rm PE_both.fq.gz
+
+                echo "done ..."
+
+                """
+
+
        
 # I used this target to debug trim_galore
 #        gwf.target(sanify('_1_trimmo_', full_name),

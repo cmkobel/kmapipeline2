@@ -10,7 +10,7 @@ echo "Backing up:"
 backup() {
 	var=$(basename $1)
 	touch "$1"
-	if [[ ! -f "$var" ]]; then
+	if [[ ! -f "$1" ]]; then
 		touch "$1"
 		echo "  Warning: ${1} didn't exist. Empty file created."
 	fi
