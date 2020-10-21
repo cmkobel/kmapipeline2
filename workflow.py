@@ -497,6 +497,8 @@ for prefix, dict_ in reads_paths_parsed.items():
                 echo "mash screening ..."
                 # mash screen -w -p 4 ../../../../../database/mashdb/refseq.genomes.k21s1000.msh PE_both.fq.gz | sort -gr > ../report/{full_name}_mash_screen_genomes.tab
                 # mash screen -w -p 4 ../../../../../database/mashdb/refseq.plasmid.k21s1000.msh PE_both.fq.gz | sort -gr > ../report/{full_name}_mash_screen_plasmids.tab
+                
+				#mash screen -p 4 ../../../../../database/mashdb/refseq.genomes+plasmid.k21s1000.msh PE_both.fq.gz | sort -gr > ../report/{full_name}_mash_screen_nonw.tab
                 mash screen -w -p 4 ../../../../../database/mashdb/refseq.genomes+plasmid.k21s1000.msh PE_both.fq.gz | sort -gr > ../report/{full_name}_mash_screen.tab
 
 
