@@ -31,7 +31,7 @@ The development is broken down into the following phases which will be completed
  - [x] assembly (unicycler)
  - [x] annotation (prokka)
  - [x] simple database
- - [x] coverage
+ - [x] coverage and insert size metrics
  - [x] mash screen
  - [ ]
  
