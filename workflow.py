@@ -471,6 +471,8 @@ for prefix, dict_ in reads_paths_parsed.items():
 
             """
 
+
+
         gwf.target(sanify('_1_mshscr_', full_name),
             inputs = [f"output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz",
                       f"output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz"],
@@ -673,11 +675,8 @@ for prefix, dict_ in reads_paths_parsed.items():
 
 
                 # is filtering relevant?
-                
 
             """
-
-
 
 
 
@@ -760,11 +759,10 @@ for prefix, dict_ in reads_paths_parsed.items():
                 # It would make some sense to update the meta report here and put in the assembly stats.
                 # But I think it is not worth the debugging effort, so the user will have to wait for the summary job to run (after prokka).
 
-
-
-
             """
                 
+
+
         gwf.target(sanify('_3.1_GCn__', full_name),
             inputs = [f"output/isolates/{full_name}/unicycler/final_assembly/{full_name}.fasta"],
             outputs = f"output/isolates/{full_name}/unicycler/GC.tab",
@@ -773,12 +771,11 @@ for prefix, dict_ in reads_paths_parsed.items():
             walltime = '1:00:00',
             account = 'clinicalmicrobio') << f"""
                 
-
                 cat output/isolates/{full_name}/unicycler/final_assembly/{full_name}.fasta | scripts/gc_fasta.py {full_name} > output/isolates/{full_name}/unicycler/GC.tab 
 
+            """        
 
 
-                """        
 
 		# Alternative to unicycler: skesa
         gwf.target(sanify('_3_skesa__', full_name),
@@ -810,16 +807,10 @@ for prefix, dict_ in reads_paths_parsed.items():
             memory = '8g',
             walltime = '04:00:00',
             account = 'clinicalmicrobio') << f"""
-                
-
 
                 mkdir -p output/isolates/{full_name}/prokka
 
-
-
                 # Copied from assemblycomparator
-
-                
 
 
                 cd output/isolates/{full_name}/prokka #
@@ -860,8 +851,6 @@ for prefix, dict_ in reads_paths_parsed.items():
                     fi
                 fi
                 cp prokka.gff {full_name}.gff
-                
-                
 
             """
 
@@ -922,9 +911,8 @@ for prefix, dict_ in reads_paths_parsed.items():
                 # full_name sample_name tech    kraken2_p   kraken2 cat_reads   trim_reads  unicycler_assembly   unicycler_ncontigs unicycler_sum   unicycler_longest        prokka_gff  prokka_CDS date
                 echo -e "{full_name}\t{sample_name}\t$method\t$kraken2_p\t$kraken2\t[\\"$cat_R1\\", \\"$cat_R2\\"]\t[\\"$trim_R1\\", \\"$trim_R2\\"]\t$unicycler_assembly\t$unicycler_ncontigs\t$unicycler_sum\t$unicycler_longest\t$prokka_gff\t$prokka_CDS\t$(date +%F_%H-%M-%S)\t{prefix}\t{dict_['path']}" > output/isolates/{full_name}/report/meta_report.txt
 
-
-
             """
+
 
 
     # Kill dict_['path']
@@ -953,6 +941,7 @@ for prefix, dict_ in reads_paths_parsed.items():
 
     #    break
     #break
+
 
 
     # Sanity check on the number of reads available and used.
