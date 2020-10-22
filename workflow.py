@@ -377,13 +377,8 @@ for prefix, dict_ in reads_paths_parsed.items():
 
         print()
 
-        # The problem is that it asks also when you write gwf status
-        #if not input('Continue? [y]/n ')[0].strip().upper() == 'Y':
-        #    print(' user exited...')
-        #    exit()
 
         # Skip blacklisted samples. Some samples just don't comply.
-        #blacklist = ['HA_101', '16-138518_S10', '16-149463_S7', 'D10_00037', 'D_02357', 'HA_11']
 
         # New, better blacklist with full_name's instead of sample_name's
         blacklist = ['200622_HA_11',
@@ -391,7 +386,6 @@ for prefix, dict_ in reads_paths_parsed.items():
                      '180828_D10_00037',
                      #'180914_D_02357',
                      '200622_HA_38', '200622_HA_94', '200622_HA_101']
-        #blacklist = []
         if prefix + '_' + sample_name in blacklist:
             continue
         
@@ -442,7 +436,7 @@ for prefix, dict_ in reads_paths_parsed.items():
                 rm {full_name}_R1.fq
                 rm {full_name}_R2.fq
 
-                """
+            """
 
 
 
@@ -475,7 +469,7 @@ for prefix, dict_ in reads_paths_parsed.items():
                 # TODO: check if trim galore supports multiple cores now? 
                 # TODO: Find a way to save the fastq results? They should be calculated within trim_galore
 
-                """
+            """
 
         gwf.target(sanify('_1_mshscr_', full_name),
             inputs = [f"output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz",
@@ -507,42 +501,7 @@ for prefix, dict_ in reads_paths_parsed.items():
 
                 echo "done ..."
 
-                """
-
-
-       
-# I used this target to debug trim_galore
-#        gwf.target(sanify('_1_trimmo_', full_name),
-#            inputs = [f"output/isolates/{full_name}/cat_reads/PE_R1.fastq.gz",
-#                      f"output/isolates/{full_name}/cat_reads/PE_R2.fastq.gz"],
-#            outputs = [f"output/isolates/{full_name}/trimmomatic/forward_paired.fq.gz",
-#                       f"output/isolates/{full_name}/trimmomatic/forward_unpaired.fq.gz",
-#                       f"output/isolates/{full_name}/trimmomatic/reverse_paired.fq.gz",
-#                       f"output/isolates/{full_name}/trimmomatic/reverse_unpaired.fq.gz"],
-#            cores = 4,
-#            memory = '4gb',
-#            walltime = '16:00:00',
-#            account = 'clinicalmicrobio') << f"""
-#
-#
-#                mkdir -p output/isolates/{full_name}/trimmomatic/
-#                
-#                #trimmomatic PE -trimlog output/isolates/{full_name}/trimmomatic/trimlog.txt -summary output/isolates/{full_name}/trimmomatic/summary.txt -validatePairs output/isolates/{full_name}/cat_reads/PE_R1.fastq.gz output/isolates/{full_name}/cat_reads/PE_R2.fastq.gz output/isolates/{full_name}/trimmomatic/forward_paired.fq.gz output/isolates/{full_name}/trimmomatic/forward_unpaired.fq.gz output/isolates/{full_name}/trimmomatic/reverse_paired.fq.gz output/isolates/{full_name}/trimmomatic/reverse_unpaired.fq.gz ILLUMINACLIP:TruSeq3-PE.fa:2:30:10:2:keepBothReads LEADING:3 TRAILING:3 MINLEN:36
-#
-#
-#                mkdir -p output/isolates/{full_name}/report 
-#
-#                cd output/isolates/{full_name}/trimmomatic
-#                zcat forward_paired.fq.gz > {full_name}_R1.fq
-#                zcat reverse_paired.fq.gz > {full_name}_R2.fq
-#
-#
-#                assembly-stats -t {full_name}_R*.fq > ../report/fastq_stats_trimmomatic.tab
-#
-#                rm {full_name}_R1.fq
-#                rm {full_name}_R2.fq
-#
-#                """
+            """
 
 
 
@@ -572,9 +531,7 @@ for prefix, dict_ in reads_paths_parsed.items():
                 echo -e "{full_name}\t$kraken2_p\t$kraken2" >> kraken2.tab
 
 
-
-
-                """
+            """
 
 
 
@@ -671,17 +628,11 @@ for prefix, dict_ in reads_paths_parsed.items():
                 rm unsorted.bam 
 
 
-
-
-
                 # Get coverage of the non-filtered mapping.
                 echo measuring depth unfiltered...
                 sambamba depth window -w 1000 sorted.bam > coverage_unfiltered.tab
 
                 cat coverage_unfiltered.tab | awk -F$'\\t' -v name_isolate={full_name} -v name_ref=$reference_basename_stem -v name_species=$kraken2 '{{ print name_isolate, name_ref, name_species, "unfiltered", $0 }}' > coverage_all.tab
-
-
-  
 
 
                 # =-=-=-=-= Filtering =-=-=-=-=
@@ -724,7 +675,7 @@ for prefix, dict_ in reads_paths_parsed.items():
                 # is filtering relevant?
                 
 
-                """
+            """
 
 
 
@@ -812,7 +763,7 @@ for prefix, dict_ in reads_paths_parsed.items():
 
 
 
-                """
+            """
                 
         gwf.target(sanify('_3.1_GCn__', full_name),
             inputs = [f"output/isolates/{full_name}/unicycler/final_assembly/{full_name}.fasta"],
@@ -848,7 +799,7 @@ for prefix, dict_ in reads_paths_parsed.items():
 
            		assembly-stats -t {full_name}.fa > assembly-stats.tab
 
-           		"""
+           	"""
 
 
             
@@ -863,12 +814,6 @@ for prefix, dict_ in reads_paths_parsed.items():
 
 
                 mkdir -p output/isolates/{full_name}/prokka
-
-     
-
-
-
-
 
 
 
@@ -918,7 +863,7 @@ for prefix, dict_ in reads_paths_parsed.items():
                 
                 
 
-                """
+            """
 
 
 
@@ -979,7 +924,7 @@ for prefix, dict_ in reads_paths_parsed.items():
 
 
 
-                """
+            """
 
 
     # Kill dict_['path']
@@ -1004,7 +949,7 @@ for prefix, dict_ in reads_paths_parsed.items():
                 mkdir -p other
                 echo -e "{dict_['path']}\t{prefix}\t$(date +%F_%H-%M-%S)" >> other/paths_done.tab
 
-                """
+            """
 
     #    break
     #break
