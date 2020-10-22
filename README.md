@@ -31,6 +31,9 @@ The development is broken down into the following phases which will be completed
  - [x] assembly (unicycler)
  - [x] annotation (prokka)
  - [x] simple database
+ - [x] coverage
+ - [x] mash screen
+ - [ ]
  
  
 ### Phase 2
