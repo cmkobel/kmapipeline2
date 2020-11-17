@@ -106,7 +106,7 @@ def parse_input(input_paths_file):
             if lanes_first == 'no': 
                 lanes_first_bool = False
             else:
-                lanes_first_bool = True # Defaults to Truef
+                lanes_first_bool = True # Defaults to True
 
 
             # TODO: Check whether a slash has already been set into the path given in reads_paths_tab col 3 (the path = parse[2] variable.)
@@ -117,8 +117,11 @@ def parse_input(input_paths_file):
             if " " in singular_sample_name:
                 raise exception('Please remove any spaces in singular_sample_name.') # TODO: test this
 
-
-            reads_paths_parsed[prefix] = {'method': method, 'path': path, 'singular_sample_name': singular_sample_name, 'lanes_first': lanes_first_bool}
+            
+            
+            # Hvis der er flere singular-prøver med samme prefiks overskriver de den samme key i dict.
+            # Derfor er det nødvendigt at nøglen i dict reads_paths_parsed bruger en interaktion mellem prefix og linje-nr, eller bare linje-nr.
+            reads_paths_parsed[_i] = {'prefix': prefix, 'method': method, 'path': path, 'singular_sample_name': singular_sample_name, 'lanes_first': lanes_first_bool}
 
     return reads_paths_parsed
 
@@ -130,7 +133,9 @@ def overview_presentation(reads_paths_parsed):
     """ This function writes a pretty overview of the input paths.
     """
     print("These are the paths where sample-names will be extracted from.")
-    for key, dict_ in reads_paths_parsed.items():
+    for _i, dict_ in reads_paths_parsed.items():
+
+        prefix = dict_['prefix']
 
         # shorten the path if it is too long to show on screen
         if len(dict_['path']) > 90:
@@ -143,7 +148,7 @@ def overview_presentation(reads_paths_parsed):
             status_msg = ' complete:   will be skipped: '
         else:
             status_msg = '>incomplete: will be enqueued:'
-        print(f"{status_msg} \"{key}\" {dict_['singular_sample_name']} @ {shortened_path} ({dict_['method']})")
+        print(f"{status_msg} \"{prefix}\" {dict_['singular_sample_name']} @ {shortened_path} ({dict_['method']})")
     print()
 
 overview_presentation(reads_paths_parsed)
@@ -162,8 +167,12 @@ overview_presentation(reads_paths_parsed)
 
 print('Now iterating over the remaining paths, if any:')
 
+kill_no = 0 # enumerates the number of 99_kill, so they wont get the same title if there is multiple singular samples under the same prefix
 
-for prefix, dict_ in reads_paths_parsed.items():
+for _i, dict_ in reads_paths_parsed.items():
+
+
+    prefix = dict_['prefix']
     
     # Skip paths which are done.
     if dict_['path'] in paths_done:
@@ -541,7 +550,7 @@ for prefix, dict_ in reads_paths_parsed.items():
             inputs = [f"output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz",
                       f"output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz",
                       f"output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab"],
-            outputs = [f"output/isolates/{full_name}/coverage/coverage_all.tab"],
+            outputs = [f"output/isolates/{full_name}/coverage/coverage_report.tab"],
             cores = 8,
             memory = '16g', #'16g',
             walltime = '2:00:00', #'4:00:00',
@@ -552,10 +561,11 @@ for prefix, dict_ in reads_paths_parsed.items():
                 source /home/cmkobel/miniconda3/etc/profile.d/conda.sh 
                 conda activate antihum # I ought to change its name to "coverage"
 
+                
 
-
-                # Pick the reference automatically
-                kraken_line=$(head -n 1 output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab | tail -n 1)
+                # Here you pick the species number
+                #kraken_line=$(head -n 1 output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab | tail -n 1)
+                kraken_line=$(cat output/isolates/{full_name}/kraken2/kraken2_reads_top10.tab | grep -v unclassified | head -n 1)
 
                 kraken2=$(echo $kraken_line | awk '{{$1 = ""; print $0;}}' | sed 's/^[ \t]*//;s/[ \t]*$//' | sed -e "s/ /_/g")
                 kraken2_p=$(echo $kraken_line | awk '{{print $1}}' | sed -e 's/%//')
@@ -762,7 +772,7 @@ for prefix, dict_ in reads_paths_parsed.items():
             """
                 
 
-
+        # TODO: update. there is no read frame alignment.
         gwf.target(sanify('_3.1_GCn__', full_name),
             inputs = [f"output/isolates/{full_name}/unicycler/final_assembly/{full_name}.fasta"],
             outputs = f"output/isolates/{full_name}/unicycler/GC.tab",
@@ -855,6 +865,22 @@ for prefix, dict_ in reads_paths_parsed.items():
             """
 
 
+        gwf.target(sanify('_4.2_abr', full_name),
+            inputs = [f"output/isolates/{full_name}/unicycler/final_assembly/{full_name}.fasta"],
+            outputs = [f"output/isolates/{full_name}/unicycler/abricate/what.txt"],
+            account = 'clinicalmicrobio') << f""" 
+
+                singularity run --bind output/isolates/{full_name}:/seq \
+                    docker://staphb/abricate \
+                        --input-fasta /seq/{full_name}.all.fasta \
+                        --output-csv /seq/{full_name}.nextclade.csv
+
+
+
+
+        """
+
+
 
         gwf.target(sanify('_5_report_', full_name),
             inputs = [
@@ -868,7 +894,9 @@ for prefix, dict_ in reads_paths_parsed.items():
                       f"output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz",
 
                       f"output/isolates/{full_name}/unicycler/final_assembly/{full_name}.fasta",
-                      f"output/isolates/{full_name}/prokka/{full_name}.gff"
+                      f"output/isolates/{full_name}/prokka/{full_name}.gff",
+
+                      f"output/isolates/{full_name}/coverage/coverage_report.tab",
                       ],
             outputs = [f"output/isolates/{full_name}/report/meta_report.txt"],
             cores = 1,
@@ -906,10 +934,16 @@ for prefix, dict_ in reads_paths_parsed.items():
                 prokka_gff="output/isolates/{full_name}/prokka/{full_name}.gff"
                 prokka_CDS=$(cat output/isolates/{full_name}/prokka/prokka.txt | awk '$1 == "CDS:" {{print $0}}' | awk '{{print $2}}')
 
+                coverage=$(cat output/isolates/{full_name}/coverage/coverage_report.tab | head -n 1 | cut -f 6)
+                median_insert_size=$(cat output/isolates/{full_name}/coverage/*/ins.size_summary_export.tab | grep -v MEDIAN_INSERT_SIZE | head -n 1 | cut -f 1 | cut -d ' ' -f 2)
+                mode_insert_size=$(cat output/isolates/{full_name}/coverage/*/ins.size_summary_export.tab | grep -v MEDIAN_INSERT_SIZE | head -n 1 | cut -f 2 )
+                median_absolute_deviation=$(cat output/isolates/201106_A20_30461/coverage/*/ins.size_summary_export.tab | grep -v MEDIAN_INSERT_SIZE | head -n 1 | cut -f 3)
+
+
                 method='{dict_['method']}'
 
                 # full_name sample_name tech    kraken2_p   kraken2 cat_reads   trim_reads  unicycler_assembly   unicycler_ncontigs unicycler_sum   unicycler_longest        prokka_gff  prokka_CDS date
-                echo -e "{full_name}\t{sample_name}\t$method\t$kraken2_p\t$kraken2\t[\\"$cat_R1\\", \\"$cat_R2\\"]\t[\\"$trim_R1\\", \\"$trim_R2\\"]\t$unicycler_assembly\t$unicycler_ncontigs\t$unicycler_sum\t$unicycler_longest\t$prokka_gff\t$prokka_CDS\t$(date +%F_%H-%M-%S)\t{prefix}\t{dict_['path']}" > output/isolates/{full_name}/report/meta_report.txt
+                echo -e "{full_name}\t{sample_name}\t$method\t$kraken2_p\t$kraken2\t[\\"$cat_R1\\", \\"$cat_R2\\"]\t[\\"$trim_R1\\", \\"$trim_R2\\"]\t$unicycler_assembly\t$unicycler_ncontigs\t$unicycler_sum\t$unicycler_longest\t$prokka_gff\t$prokka_CDS\t$(date +%F_%H-%M-%S)\t{prefix}\t{dict_['path']}\t$coverage\t$median_insert_size\t$mode_insert_size\t$median_absolute_deviation" > output/isolates/{full_name}/report/meta_report.txt
 
             """
 
@@ -917,9 +951,11 @@ for prefix, dict_ in reads_paths_parsed.items():
 
     # Kill dict_['path']
     # When all isolates from a dict_['path'] has been correctly processed, the dict_['path'] is added to a file (paths_done.tab). This disables the dict_['path'] from being processed in the pipeline.
+    
+    kill_no += 1
     if True: # Can be easily disabled for debugging.
         input_list = [f"output/isolates/{prefix + '_' + sample_name}/report/meta_report.txt" for sample_name in sample_names if prefix + '_' + sample_name not in blacklist]
-        gwf.target(sanify('_99_kill__', prefix),
+        gwf.target(sanify('_99_kill__', prefix, '_', kill_no),
             inputs = input_list,
             outputs = [],
             cores = 1,
@@ -928,9 +964,7 @@ for prefix, dict_ in reads_paths_parsed.items():
                 account = 'clinicalmicrobio') << f"""
 
 
-
                 ./update_db.sh
-
 
 
                 # Exclude the path from the pipeline when all are complete.

@@ -32,7 +32,7 @@ echo "Collecting meta reports:"
 
 # Reset content and write header
 a=$(cat collected_database.tab | wc -l)
-echo -e "full_name\tsample_name\ttech\tkraken2_p\tkraken2\tcat_reads\ttrim_reads\tunicycler\tunicycler_ncontigs\tunicycler_sum\tunicycler_longest\tprokka_gff\tprokka_CDS\tpipeline_date\tprefix\tpath" > collected_database.tab
+echo -e "full_name\tsample_name\ttech\tkraken2_p\tkraken2\tcat_reads\ttrim_reads\tunicycler\tunicycler_ncontigs\tunicycler_sum\tunicycler_longest\tprokka_gff\tprokka_CDS\tpipeline_date\tprefix\tpath\tcoverage\tmedian_inssize\tmode_inssize\tmad_inssize" > collected_database.tab
 
 # Collect
 
