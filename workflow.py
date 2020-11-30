@@ -770,10 +770,46 @@ for _i, dict_ in reads_paths_parsed.items():
                 # But I think it is not worth the debugging effort, so the user will have to wait for the summary job to run (after prokka).
 
             """
+
+        # Coverage of its own assembly using snippy
+        gwf.target(sanify('_3snippyself_', full_name),
+            inputs = f"output/isolates/{full_name}/unicycler/final_assembly/{full_name}.fasta",
+            outputs = [f"output/isolates/{full_name}/snippyself/{full_name}.txt",
+                       f"output/isolates/{full_name}/snippyself/{full_name}.bam",
+                       f"output/isolates/{full_name}/snippyself/{full_name}.bam.coverage.tab"],
+            cores = 8, 
+            memory = '32g',
+            walltime = '4:00:00',
+            account = 'ClinicalMicrobio') << f"""
+
+            mkdir -p 'output/isolates/{full_name}/snippyself'
+
+            echo "starting snippy ..."
+            singularity run \
+                docker://staphb/snippy \
+                    snippy --force --prefix {full_name} --outdir 'output/isolates/{full_name}/snippyself' --ref {f"output/isolates/{full_name}/unicycler/final_assembly/{full_name}.fasta"} --R1 {f"output/isolates/{full_name}/trim_reads/PE_R1_val_1.fq.gz"} --R2 {f"output/isolates/{full_name}/trim_reads/PE_R2_val_2.fq.gz"} --cpus 8 --ram 32
+
+
+            echo "starting depth all ..."
+            #singularity run \
+            #    docker://comics/samtools \
+            #        samtools depth -a output/isolates/{full_name}/snippyself/{full_name}.bam > output/isolates/{full_name}/snippyself/{full_name}.bam.coverage.tab
+
+            
+            source /home/cmkobel/miniconda3/etc/profile.d/conda.sh 
+            conda activate antihum 
+
+            sambamba depth window -w 1 output/isolates/{full_name}/snippyself/{full_name}.bam | awk -v hat={full_name} '{{ print hat "\t" $0}}' > output/isolates/{full_name}/snippyself/{full_name}.bam.coverage.tab
+
+
+
+
+
+             """
                 
 
         # TODO: update. there is no read frame alignment.
-        gwf.target(sanify('_3.1_GCn__', full_name),
+        gwf.target(sanify('_3.2_GCn__', full_name),
             inputs = [f"output/isolates/{full_name}/unicycler/final_assembly/{full_name}.fasta"],
             outputs = f"output/isolates/{full_name}/unicycler/GC.tab",
             cores = 1,
@@ -866,14 +902,19 @@ for _i, dict_ in reads_paths_parsed.items():
 
 
         gwf.target(sanify('_4.2_abr', full_name),
-            inputs = [f"output/isolates/{full_name}/unicycler/final_assembly/{full_name}.fasta"],
-            outputs = [f"output/isolates/{full_name}/unicycler/abricate/what.txt"],
+            inputs = [f"output/isolates/{full_name}/unicycler/assembly.fasta"],
+            outputs = [f"output/isolates/{full_name}/abricate/{full_name}_ncbi.tab"],
             account = 'clinicalmicrobio') << f""" 
 
-                singularity run --bind output/isolates/{full_name}:/seq \
-                    docker://staphb/abricate \
-                        --input-fasta /seq/{full_name}.all.fasta \
-                        --output-csv /seq/{full_name}.nextclade.csv
+
+                mkdir -p output/isolates/{full_name}/abricate
+                cd output/isolates/{full_name}
+
+
+
+
+                singularity run \
+                    docker://staphb/abricate abricate --db ncbi unicycler/assembly.fasta > abricate/{full_name}_ncbi.tab
 
 
 
