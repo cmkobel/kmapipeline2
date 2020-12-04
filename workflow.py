@@ -809,17 +809,17 @@ for _i, dict_ in reads_paths_parsed.items():
                 
 
         # TODO: update. there is no read frame alignment.
-        gwf.target(sanify('_3.2_GCn__', full_name),
-            inputs = [f"output/isolates/{full_name}/unicycler/final_assembly/{full_name}.fasta"],
-            outputs = f"output/isolates/{full_name}/unicycler/GC.tab",
-            cores = 1,
-            memory = '1g', 
-            walltime = '1:00:00',
-            account = 'clinicalmicrobio') << f"""
-                
-                cat output/isolates/{full_name}/unicycler/final_assembly/{full_name}.fasta | scripts/gc_fasta.py {full_name} > output/isolates/{full_name}/unicycler/GC.tab 
-
-            """        
+        #gwf.target(sanify('_3.2_GCn__', full_name),
+        #    inputs = [f"output/isolates/{full_name}/unicycler/final_assembly/{full_name}.fasta"],
+        #    outputs = f"output/isolates/{full_name}/unicycler/GC.tab",
+        #    cores = 1,
+        #    memory = '1g', 
+        #    walltime = '1:00:00',
+        #    account = 'clinicalmicrobio') << f"""
+         #       
+         #       cat output/isolates/{full_name}/unicycler/final_assembly/{full_name}.fasta | scripts/gc_fasta.py {full_name} > output/isolates/{full_name}/unicycler/GC.tab 
+        #
+        #    """        
 
 
 
@@ -914,7 +914,7 @@ for _i, dict_ in reads_paths_parsed.items():
 
 
                 singularity run \
-                    docker://staphb/abricate abricate --db ncbi unicycler/assembly.fasta > abricate/{full_name}_ncbi.tab
+                    docker://staphb/abricate abricate --db ncbi unicycler/assembly.fasta | awk -v sam={full_name} '{{ print sam "\\t" $0 }}' > abricate/{full_name}_ncbi.tab
 
 
 
