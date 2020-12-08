@@ -914,8 +914,7 @@ for _i, dict_ in reads_paths_parsed.items():
 
 
                 singularity run \
-                    docker://staphb/abricate abricate --db ncbi unicycler/assembly.fasta | awk -v sam={full_name} '{{ print sam "\\t" $0 }}' > abricate/{full_name}_ncbi.tab
-
+                    docker://staphb/abricate abricate --db ncbi unicycler/assembly.fasta | grep -v "#FILE" | awk -v sam={full_name} '{{ print sam "\\t" $0 }}' > abricate/{full_name}_ncbi.tab
 
 
 
