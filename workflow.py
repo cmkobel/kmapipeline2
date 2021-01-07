@@ -912,9 +912,21 @@ for _i, dict_ in reads_paths_parsed.items():
 
 
 
-
+                echo "ncbi ..."
                 singularity run \
                     docker://staphb/abricate abricate --db ncbi unicycler/assembly.fasta | grep -v "#FILE" | awk -v sam={full_name} '{{ print sam "\\t" $0 }}' > abricate/{full_name}_ncbi.tab
+                    
+                echo "vfdb ..."
+                singularity run \
+                    docker://staphb/abricate abricate --db vfdb unicycler/assembly.fasta | grep -v "#FILE" | awk -v sam={full_name} '{{ print sam "\\t" $0 }}' > abricate/{full_name}_vfdb.tab
+                    
+                echo "resfinder ..."
+                singularity run \
+                    docker://staphb/abricate abricate --db resfinder unicycler/assembly.fasta | grep -v "#FILE" | awk -v sam={full_name} '{{ print sam "\\t" $0 }}' > abricate/{full_name}_resfinder.tab
+
+
+
+
 
 
 
